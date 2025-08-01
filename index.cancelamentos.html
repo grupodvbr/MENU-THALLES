@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cancelamentos - VILLA GOURMET</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7f7f7;
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      background-color: white;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid #ccc;
+    }
+
+    header img {
+      height: 50px;
+      margin-right: 20px;
+    }
+
+    header h1 {
+      margin: 0 auto;
+      font-size: 1.6em;
+      font-weight: bold;
+      text-align: center;
+      flex: 1;
+    }
+
+    .container {
+      padding: 20px;
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .filters input {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      flex: 1 1 200px;
+    }
+
+    .grupo-empresa {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+      margin-bottom: 30px;
+      padding: 15px 20px;
+    }
+
+    .grupo-empresa h2 {
+      margin-top: 0;
+      font-size: 1.4em;
+      color: #2c3e50;
+    }
+
+    .item-cancelamento {
+      margin-bottom: 10px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+
+    .item-cancelamento:last-child {
+      border-bottom: none;
+    }
+
+    .item-cancelamento p {
+      margin: 4px 0;
+    }
+
+    .subtotal {
+      font-weight: bold;
+      margin-top: 10px;
+      font-size: 1.1em;
+    }
+
+    .btn-whatsapp {
+      background-color: #25D366;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      float: right;
+      margin-bottom: 10px;
+    }
+
+    .total-cancelado {
+      background: #fff;
+      padding: 15px;
+      border-radius: 12px;
+      font-weight: bold;
+      font-size: 1.2em;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+
+    @media (max-width: 600px) {
+      header {
+        flex-direction: column;
+        text-align: center;
+      }
+      header img {
+        margin: 0 0 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <img src="https://static.wixstatic.com/media/d830b0_8cec50a98bbf4775814dbfa5386585e8~mv2.png" alt="Logo CB Systems">
+  <h1>📋 Cancelamentos - VILLA GOURMET</h1>
+</header>
+
+<div class="container">
+  <div class="filters">
+    <input type="date" id="dataInicio" />
+    <input type="date" id="dataFim" />
+    <input type="text" id="filtroBusca" placeholder="Buscar item..." />
+  </div>
+
+  <button class="btn-whatsapp" onclick="enviarWhatsapp()">📤 Enviar via WhatsApp</button>
+
+  <div class="total-cancelado">
+    📊 Total Cancelado: <span id="totalCancelado">R$ 0,00</span>
+  </div>
+
+  <div id="listaCancelamentos"></div>
+</div>
+
+<script>
+const URL_SCRIPT = 'https://script.google.com/macros/s/AKfycbzaS3QgsNyePSGRlpy3Ue6EuQw75QYID9jadb-KezTv8y9Mg6d8HFoKUCzcBRqzM5aMBg/exec';
+let cancelamentos = [];
+
+async function carregarDados() {
+  const res = await fetch(URL_SCRIPT);
+  const dados = await res.json();
+  cancelamentos = dados.filter(c => c.empresa === "VILLA GOURMET");
+  aplicarFiltros();
+  preencherDataPadrao();
+}
+
+function formatarMoeda(valor) {
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function formatarDataBR(dataISO) {
+  const [ano, mes, dia] = dataISO.split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+
+function preencherDataPadrao() {
+  const hoje = new Date();
+  const ontem = new Date(hoje);
+  ontem.setDate(hoje.getDate() - 1);
+  const formato = d => d.toISOString().split('T')[0];
+  document.getElementById("dataInicio").value = formato(ontem);
+  document.getElementById("dataFim").value = formato(ontem);
+}
+
+function aplicarFiltros() {
+  const busca = document.getElementById('filtroBusca').value.toLowerCase();
+  const dataInicio = document.getElementById('dataInicio').value;
+  const dataFim = document.getElementById('dataFim').value;
+
+  const lista = document.getElementById("listaCancelamentos");
+  lista.innerHTML = "";
+  document.getElementById("rankingContainer")?.remove();
+
+  let totalGeral = 0;
+  const grupo = [];
+
+  cancelamentos.forEach(c => {
+    if (
+      (busca && !c.item.toLowerCase().includes(busca)) ||
+      (dataInicio && c.data < dataInicio) ||
+      (dataFim && c.data > dataFim)
+    ) return;
+
+    grupo.push(c);
+  });
+
+  if (grupo.length > 0) {
+    let subtotal = 0;
+    const divGrupo = document.createElement("div");
+    divGrupo.className = "grupo-empresa";
+
+    const primeiraData = grupo[0]?.data || "";
+    grupo.forEach(c => subtotal += c.valor);
+    totalGeral += subtotal;
+
+    const titulo = document.createElement("h2");
+    titulo.textContent = `📅 ${formatarDataBR(primeiraData)} • 🏢 VILLA GOURMET — Subtotal: ${formatarMoeda(subtotal)}`;
+    divGrupo.appendChild(titulo);
+
+    grupo.forEach(c => {
+      const itemDiv = document.createElement("div");
+      itemDiv.className = "item-cancelamento";
+
+      const [nomeItem, valorInfo] = c.item.split(" – ");
+      itemDiv.innerHTML = `
+        <p>${nomeItem}</p>
+        <p>💸 ${valorInfo || formatarMoeda(c.valor)}</p>
+      `;
+      divGrupo.appendChild(itemDiv);
+    });
+
+    lista.appendChild(divGrupo);
+    exibirRanking(grupo);
+  }
+
+  document.getElementById("totalCancelado").textContent = formatarMoeda(totalGeral);
+}
+
+function exibirRanking(listaItens) {
+  const container = document.createElement("div");
+  container.id = "rankingContainer";
+  container.className = "grupo-empresa";
+  const titulo = document.createElement("h2");
+  titulo.textContent = "🏆 Top 7 Itens Mais Caros";
+  container.appendChild(titulo);
+
+  const ranking = listaItens
+    .slice()
+    .sort((a, b) => b.valor - a.valor)
+    .slice(0, 7);
+
+  ranking.forEach((item, index) => {
+    const linha = document.createElement("p");
+    linha.textContent = `${index + 1}. ${item.item} — ${formatarMoeda(item.valor)} (${formatarDataBR(item.data)})`;
+    container.appendChild(linha);
+  });
+
+  document.getElementById("listaCancelamentos").prepend(container);
+}
+
+function enviarWhatsapp() {
+  let mensagem = `📢 *Resumo de Cancelamentos - VILLA GOURMET*%0A`;
+  const dataInicio = document.getElementById("dataInicio").value;
+  const dataFim = document.getElementById("dataFim").value;
+  const busca = document.getElementById("filtroBusca").value.toLowerCase();
+
+  const itens = cancelamentos.filter(c =>
+    (!dataInicio || c.data >= dataInicio) &&
+    (!dataFim || c.data <= dataFim) &&
+    (!busca || c.item.toLowerCase().includes(busca))
+  );
+
+  if (!itens.length) return alert("Nenhum cancelamento encontrado.");
+
+  let subtotal = 0;
+  itens.forEach(c => {
+    subtotal += c.valor;
+    mensagem += `\n${c.item} - 💸 ${formatarMoeda(c.valor)} - ${formatarDataBR(c.data)}`;
+  });
+
+  mensagem += `\n\nSubtotal: *${formatarMoeda(subtotal)}*`;
+
+  const telefone = "5577999761436";
+  const url = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+  window.open(url, "_blank");
+}
+
+document.getElementById('dataInicio').addEventListener('change', aplicarFiltros);
+document.getElementById('dataFim').addEventListener('change', aplicarFiltros);
+document.getElementById('filtroBusca').addEventListener('input', aplicarFiltros);
+
+carregarDados();
+</script>
+
+</body>
+</html>

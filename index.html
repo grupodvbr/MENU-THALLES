@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Análise Financeira</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: white;
+    }
+
+    #splash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.5s ease;
+    }
+
+    #splash img {
+      width: 150px;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.9; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    header {
+      background-color: white;
+      color: #2c3e50;
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid #ccc;
+    }
+
+    .logo-left {
+      flex: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    .logo-left img {
+      height: 40px;
+    }
+
+    .title-center {
+      flex: 2;
+      text-align: center;
+    }
+
+    .title-center h1 {
+      font-size: 24px;
+      margin: 0;
+      font-weight: bold;
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      padding: 30px;
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 30px 20px;
+      text-align: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      transition: transform 0.2s ease;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      background-color: #f0f8ff;
+    }
+
+    .card h2 {
+      margin: 0;
+      font-size: 20px;
+      color: #2c3e50;
+    }
+
+    .icon {
+      font-size: 40px;
+      color: #2980b9;
+      margin-bottom: 10px;
+    }
+
+    @media (max-width: 500px) {
+      header {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .logo-left,
+      .spacer {
+        display: none;
+      }
+
+      .title-center {
+        flex: 1;
+      }
+
+      .card h2 {
+        font-size: 18px;
+      }
+
+      .icon {
+        font-size: 32px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Splash -->
+  <div id="splash">
+    <img src="https://static.wixstatic.com/media/d830b0_8cec50a98bbf4775814dbfa5386585e8~mv2.png" alt="Logo CB Systems">
+  </div>
+
+  <!-- Cabeçalho -->
+  <header>
+    <div class="logo-left">
+      <img src="https://static.wixstatic.com/media/d830b0_8cec50a98bbf4775814dbfa5386585e8~mv2.png" alt="Logo">
+    </div>
+    <div class="title-center">
+      <h1>Análise Financeira</h1>
+    </div>
+    <div class="spacer"></div>
+  </header>
+
+  <!-- Cards -->
+  <!-- Cards -->
+<div class="container">
+  <a class="card" href="index.resumofinanceiro.html">
+    <div class="icon">📈</div>
+    <h2>Resumo Financeiro</h2>
+  </a>
+
+  <a class="card" href="index.cancelamentos.html">
+    <div class="icon">❌</div>
+    <h2>Cancelamentos</h2>
+  </a>
+
+  <a class="card" href="index.delivery.html">
+    <div class="icon">🚚</div>
+    <h2>Vendas Delivery</h2>
+  </a>
+
+  <a class="card" href="index.meta.html">
+    <div class="icon">📊</div>
+    <h2>Meta de Faturamento</h2>
+  </a>
+
+  <a class="card" href="index.conciliacao.html">
+    <div class="icon">💳</div>
+    <h2>Conciliações</h2>
+  </a>
+</div>
+
+  <!-- Script splash -->
+  <script>
+    window.addEventListener('load', () => {
+      const splash = document.getElementById('splash');
+      setTimeout(() => {
+        splash.style.opacity = '0';
+        setTimeout(() => splash.style.display = 'none', 500);
+      }, 1000);
+    });
+  </script>
+
+</body>
+</html>

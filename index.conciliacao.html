@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Conciliações - VILLA GOURMET</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: white;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: white;
+      padding: 20px 20px 10px;
+      border-bottom: 1px solid #ccc;
+      text-align: center;
+    }
+    header img {
+      height: 60px;
+      margin-bottom: 5px;
+    }
+    header h1 {
+      margin: 5px 0 0;
+      font-size: 1.6em;
+      font-weight: bold;
+    }
+    .container {
+      padding: 20px;
+    }
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+      align-items: end;
+    }
+    .filters label {
+      font-weight: bold;
+    }
+    .filters input[type="date"] {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      width: 100%;
+    }
+    .filters > div {
+      flex: 1 1 200px;
+    }
+    .btn-whatsapp {
+      background-color: #25D366;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    canvas {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+      flex: 1;
+      min-width: 320px;
+    }
+    .charts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <img src="https://static.wixstatic.com/media/d830b0_8cec50a98bbf4775814dbfa5386585e8~mv2.png" alt="Logo CB Systems">
+  <h1>Conciliações - VILLA GOURMET</h1>
+</header>
+
+<div class="container">
+  <div class="filters">
+    <div>
+      <label for="data">Data:</label>
+      <input type="date" id="data" onchange="filtrar()">
+    </div>
+    <div>
+      <button class="btn-whatsapp" onclick="enviarWhatsapp()">📤 Enviar via WhatsApp</button>
+    </div>
+  </div>
+
+  <div class="charts">
+    <canvas id="graficoPercentual"></canvas>
+    <canvas id="graficoValor"></canvas>
+  </div>
+</div>
+
+<script>
+const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbypZ0ibLQGEbGLQNr-UdmmSn-fbde-nz4KUt6RFUjp0lZbHmGTxcHvKVZmmFxL5b5roLA/exec";
+let dados = [];
+
+async function carregarDados() {
+  const res = await fetch(URL_SCRIPT);
+  dados = (await res.json()).filter(d => d.empresa === "VILLA GOURMET");
+  definirDataPadrao();
+}
+
+function definirDataPadrao() {
+  const inputData = document.getElementById("data");
+  const ontem = new Date();
+  ontem.setDate(ontem.getDate() - 1);
+  const ontemISO = ontem.toISOString().split('T')[0];
+  inputData.value = ontemISO;
+  filtrar();
+}
+
+function filtrar() {
+  const data = document.getElementById("data").value;
+  const filtrados = dados.filter(d => !data || d.data === data);
+
+  const labels = [];
+  const percentualData = [];
+  const valorData = [];
+
+  filtrados.forEach(d => {
+    labels.push(d.empresa);
+    percentualData.push(d.percentual);
+    valorData.push(d.valor);
+  });
+
+  renderChart("graficoPercentual", "📈 % Conciliado", labels, percentualData, "%");
+  renderChart("graficoValor", "💰 Valor Pendente (R$)", labels, valorData, "R$");
+}
+
+function renderChart(id, title, labels, data, tipo) {
+  const ctx = document.getElementById(id).getContext("2d");
+  if (window[id]) window[id].destroy();
+  window[id] = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: title,
+        data,
+        backgroundColor: "#3e95cd"
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: title,
+          font: { size: 18 }
+        },
+        legend: { display: false }
+      },
+      scales: {
+        y: {
+          ticks: {
+            callback: val => tipo === "%" ? val + "%" : "R$ " + val.toLocaleString("pt-BR")
+          }
+        }
+      }
+    }
+  });
+}
+
+function enviarWhatsapp() {
+  const data = document.getElementById("data").value;
+  const dataBR = data.split("-").reverse().join("/");
+
+  const filtrados = dados.filter(d => !data || d.data === data);
+
+  if (!filtrados.length) return alert("Nenhum dado para enviar.");
+
+  let mensagem = `📊 *Conciliações ${dataBR}*%0A%0A`;
+  filtrados.forEach(d => {
+    mensagem += `*VILLA GOURMET*%0A• % Conciliado: ${d.percentual.toFixed(1)}%%0A• Valor pendente: R$ ${d.valor.toFixed(2)}%0A%0A`;
+  });
+
+  const numero = "5577999761436"; // Altere aqui
+  const link = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
+  window.open(link, "_blank");
+}
+
+carregarDados();
+</script>
+
+</body>
+</html>

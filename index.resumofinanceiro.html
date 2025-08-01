@@ -1,7 +1,4 @@
-<!-- MANTIDO: código idêntico ao anterior -->
-<!-- ALTERADO: removido seletor de empresa e forçada exibição de "VILLA GOURMET" -->
-<!-- ABAIXO ESTÁ O CÓDIGO COMPLETO -->
-
+<!-- VERSÃO AJUSTADA COM GRÁFICO DE BARRAS E LEGENDA COM BOLINHAS SEM NOMES NO EIXO X -->
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -90,35 +87,27 @@
       margin-bottom: 4px;
     }
     .grafico-desktop {
-      display: none;
+      margin-top: 20px;
     }
-    @media (min-width: 768px) {
-      .empresa-box {
-        display: flex;
-        justify-content: space-between;
-        gap: 20px;
-      }
-      .empresa-conteudo {
-        flex: 1;
-      }
-      .grafico-desktop {
-        display: block;
-        flex: 1;
-        max-width: 60%;
-      }
-      canvas {
-        width: 100% !important;
-        height: auto !important;
-      }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
     }
-    @media (max-width: 600px) {
-      header {
-        flex-direction: column;
-        text-align: center;
-      }
-      header img {
-        margin: 0 0 10px;
-      }
+    .legend span {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.85em;
+    }
+    .legend span::before {
+      content: '';
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: currentColor;
     }
   </style>
 </head>
@@ -131,23 +120,11 @@
 
 <div class="conteudo">
   <div class="filtros">
-    <div>
-      <label for="dataInicio">Data Início</label>
-      <input type="date" id="dataInicio" />
-    </div>
-    <div>
-      <label for="dataFim">Data Fim</label>
-      <input type="date" id="dataFim" />
-    </div>
-    <div>
-      <button onclick="aplicarFiltro()">Filtrar</button>
-    </div>
-    <div>
-      <button onclick="exportarPDF()">📄 Exportar PDF</button>
-    </div>
-    <div>
-      <button id="enviarWhatsapp">📲 Enviar pelo WhatsApp</button>
-    </div>
+    <div><label for="dataInicio">Data Início</label><input type="date" id="dataInicio" /></div>
+    <div><label for="dataFim">Data Fim</label><input type="date" id="dataFim" /></div>
+    <div><button onclick="aplicarFiltro()">Filtrar</button></div>
+    <div><button onclick="exportarPDF()">📄 Exportar PDF</button></div>
+    <div><button id="enviarWhatsapp">📲 Enviar pelo WhatsApp</button></div>
   </div>
 
   <div id="painel"></div>
@@ -155,7 +132,6 @@
 
 <script>
 const url = 'https://script.google.com/macros/s/AKfycbz9GQLrIB4oiX0jBQ7yaDO_IiMz3ER7lQT094sp5y2VUGgQWBaz3G1fa7s4ZbiWli_O/exec';
-
 const emojis = {
   "DINHEIRO": "💵", "CRÉDITO": "💳", "DÉBITO": "🏦", "PIX": "💲",
   "ONLINE": "💻", "CREDIÁRIO": "📋", "VOUCHER": "🎫", "BONIFICAÇÃO": "🎁",
@@ -163,7 +139,6 @@ const emojis = {
   "CATÁLOGO DELIVERY": "🛒", "IFOOD": "🍱", "DELIVERY MUCH": "🍔",
   "TRANSFERÊNCIA BANCÁRIA": "🏛️", "ERROS DE GARÇONS": "🏛️", "OUTROS": "🗂"
 };
-
 let dados = [];
 
 window.onload = () => {
@@ -174,14 +149,9 @@ window.onload = () => {
 };
 
 async function carregarDados() {
-  try {
-    const resposta = await fetch(url);
-    dados = await resposta.json();
-    aplicarFiltro();
-  } catch (e) {
-    document.getElementById("painel").innerHTML = "Erro ao carregar dados.";
-    console.error(e);
-  }
+  const resposta = await fetch(url);
+  dados = await resposta.json();
+  aplicarFiltro();
 }
 
 function aplicarFiltro() {
@@ -201,8 +171,13 @@ function aplicarFiltro() {
     return;
   }
 
-  const total = dadosFiltrados.reduce((s, i) => s + parseFloat(i.Valor), 0);
+  const agrupado = {};
+  dadosFiltrados.forEach(item => {
+    const categoria = item.Categoria.toUpperCase();
+    agrupado[categoria] = (agrupado[categoria] || 0) + parseFloat(item.Valor);
+  });
 
+  const total = Object.values(agrupado).reduce((a, b) => a + b, 0);
   const box = document.createElement("div");
   box.className = "empresa-box";
 
@@ -210,18 +185,11 @@ function aplicarFiltro() {
   conteudo.className = "empresa-conteudo";
 
   let html = `<h2>VILLA GOURMET — R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h2><ul>`;
- const agrupado = {};
-dadosEmpresa.forEach(item => {
-  const categoria = item.Categoria.toUpperCase();
-  agrupado[categoria] = (agrupado[categoria] || 0) + parseFloat(item.Valor);
-});
-
-for (const cat in agrupado) {
-  const emoji = emojis[cat] || "📌";
-  const valor = agrupado[cat].toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-  html += `<li>${emoji} ${cat}: R$ ${valor}</li>`;
-}
-
+  for (const cat in agrupado) {
+    const emoji = emojis[cat] || "📌";
+    const valor = agrupado[cat].toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    html += `<li>${emoji} ${cat}: R$ ${valor}</li>`;
+  }
   html += `</ul>`;
   conteudo.innerHTML = html;
 
@@ -230,38 +198,52 @@ for (const cat in agrupado) {
   const canvas = document.createElement("canvas");
   canvasContainer.appendChild(canvas);
 
+  const legend = document.createElement("div");
+  legend.className = "legend";
+  Object.keys(agrupado).forEach((cat, i) => {
+    const cor = `hsl(${i * 35}, 70%, 60%)`;
+    const item = document.createElement("span");
+    item.style.color = cor;
+    item.innerHTML = `${cat}`;
+    legend.appendChild(item);
+  });
+
   box.appendChild(conteudo);
   box.appendChild(canvasContainer);
+  box.appendChild(legend);
   painel.appendChild(box);
 
-  desenharGrafico(canvas, dadosFiltrados);
+  desenharGrafico(canvas, agrupado);
 }
 
 function desenharGrafico(canvas, agrupado) {
   if (window.innerWidth < 768) return;
-
   const categorias = Object.keys(agrupado);
   const valores = Object.values(agrupado);
-  const labels = categorias.map(cat => `${emojis[cat] || "📌"} ${cat}`);
+  const cores = categorias.map((_, i) => `hsl(${i * 35}, 70%, 60%)`);
 
   new Chart(canvas.getContext("2d"), {
-    type: 'pie',
+    type: 'bar',
     data: {
-      labels: labels,
+      labels: categorias.map(() => ''),
       datasets: [{
         data: valores,
-        backgroundColor: categorias.map((_, i) => `hsl(${i * 35}, 70%, 60%)`)
+        backgroundColor: cores
       }]
     },
     options: {
       plugins: {
-        title: { display: true, text: "Distribuição por Categoria" },
-        legend: { position: "bottom" }
+        legend: { display: false },
+        title: { display: true, text: 'Distribuição por Categoria' }
+      },
+      responsive: true,
+      scales: {
+        x: { ticks: { display: false }, grid: { display: false } },
+        y: { beginAtZero: true }
       }
     }
   });
 }
-
 
 function exportarPDF() {
   const painel = document.getElementById("painel");

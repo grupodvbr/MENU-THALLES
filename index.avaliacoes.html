@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pesquisa de Satisfação - VILLA GOURMET</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      background: #111;
+      color: #eee;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    img {
+      display: block;
+      margin: 0 auto;
+      max-height: 80px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    form {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .question {
+      margin-bottom: 20px;
+    }
+    .question label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: bold;
+    }
+    input[type="text"], select, textarea {
+      width: 100%;
+      padding: 10px;
+      background: #222;
+      border: 1px solid #555;
+      color: #eee;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    input[type="radio"] {
+      margin-right: 6px;
+    }
+    .options label {
+      display: block;
+      margin: 4px 0;
+    }
+    .justify {
+      display: none;
+      margin-top: 10px;
+    }
+    button {
+      width: 100%;
+      background: #28a745;
+      color: #fff;
+      border: none;
+      padding: 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #218838;
+    }
+    #status {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 16px;
+    }
+    .success {
+      color: #0f0;
+    }
+    .error {
+      color: #f33;
+    }
+  </style>
+</head>
+<body>
+
+<img src="https://static.wixstatic.com/media/d830b0_883ba5848c5149d480f3957327c6f776~mv2.png" alt="Logo Villa Gourmet">
+<h1>Pesquisa de Satisfação - VILLA GOURMET</h1>
+
+<!-- (restante do formulário igual ao que você enviou, sem alteração estrutural) -->
+
+<script>
+function toggleOutra() {
+  const outra = document.querySelector('input[name="cidade"][value="Outra"]').checked;
+  document.getElementById('outra-cidade').style.display = outra ? 'block' : 'none';
+}
+
+function toggleJustify(input) {
+  const question = input.name;
+  const justifyDiv = document.getElementById(`${question}-justify`);
+  if (input.value.toLowerCase() === "ruim") {
+    justifyDiv.style.display = "block";
+  } else {
+    justifyDiv.style.display = "none";
+    justifyDiv.querySelector("textarea").value = "";
+  }
+}
+
+document.getElementById('pesquisaForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+
+  const data = {
+    nome: document.querySelector('[name="nome"]').value,
+    aniversario: document.querySelector('[name="dia"]').value + "/" +
+                  document.querySelector('[name="mes"]').value + "/" +
+                  document.querySelector('[name="ano"]').value,
+    telefone: document.querySelector('[name="telefone"]').value,
+    cidade: document.querySelector('input[name="cidade"]:checked')?.value === "Outra"
+            ? document.querySelector('[name="cidade_outra"]').value
+            : document.querySelector('input[name="cidade"]:checked')?.value || '',
+    ambiente: document.querySelector('input[name="ambiente"]:checked')?.value || '',
+    ambiente_justificativa: document.querySelector('[name="ambiente_justificativa"]').value || '',
+    iluminacao: document.querySelector('input[name="iluminacao"]:checked')?.value || '',
+    iluminacao_justificativa: document.querySelector('[name="iluminacao_justificativa"]').value || '',
+    comida: document.querySelector('input[name="comida"]:checked')?.value || '',
+    comida_justificativa: document.querySelector('[name="comida_justificativa"]').value || '',
+    atendimento: document.querySelector('input[name="atendimento"]:checked')?.value || '',
+    atendimento_justificativa: document.querySelector('[name="atendimento_justificativa"]').value || '',
+    climatizacao: document.querySelector('input[name="climatizacao"]:checked')?.value || '',
+    climatizacao_justificativa: document.querySelector('[name="climatizacao_justificativa"]').value || '',
+    cardapio_sugestao: document.querySelector('[name="cardapio_sugestao"]').value || ''
+  };
+
+  fetch("https://script.google.com/macros/s/AKfycbwoq1-KXaIw2Ncpm2xDMRT73x_vPpFWu7nCDQ3wM55mkliVx5FISJLlgDOvElY5pS-B/exec", {
+    method: "POST",
+    body: JSON.stringify(data),
+    headers: { "Content-Type": "application/json" }
+  })
+  .then(r => r.text())
+  .then(() => {
+    document.getElementById('status').innerHTML = "<p class='success'>✅ Obrigado! Resposta enviada com sucesso.</p>";
+    document.getElementById('pesquisaForm').reset();
+    document.querySelectorAll('.justify').forEach(j => j.style.display = 'none');
+    document.getElementById('outra-cidade').style.display = 'none';
+  })
+  .catch(err => {
+    document.getElementById('status').innerHTML = "<p class='error'>❌ Erro: " + err + "</p>";
+  });
+});
+</script>
+
+</body>
+</html>

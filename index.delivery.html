@@ -81,7 +81,7 @@
   <div class="total-box">
     <div style="float:right">
       <label for="mesResumo">Mês:</label>
-      <select id="mesResumo" onchange="atualizarTotais()">
+      <select id="mesResumo" onchange="atualizarTotais(); atualizarResumoEmpresa(); filtrarGrafico()">
         <option value="">Todos</option>
         <option value="01">Janeiro</option>
         <option value="02">Fevereiro</option>
@@ -98,19 +98,10 @@
       </select>
     </div>
     <h3>💰 Totais por Plataforma</h3>
-    <div class="total-line">
-      <span>iFood</span>
-      <span id="total-ifood">R$ 0,00</span>
-    </div>
-    <div class="total-line">
-      <span>Delivery Much</span>
-      <span id="total-dm">R$ 0,00</span>
-    </div>
+    <div class="total-line"><span>iFood</span><span id="total-ifood">R$ 0,00</span></div>
+    <div class="total-line"><span>Delivery Much</span><span id="total-dm">R$ 0,00</span></div>
     <hr />
-    <div class="total-line">
-      <strong>Total Geral</strong>
-      <strong id="total-geral">R$ 0,00</strong>
-    </div>
+    <div class="total-line"><strong>Total Geral</strong><strong id="total-geral">R$ 0,00</strong></div>
   </div>
 
   <div class="chart-box">
@@ -165,15 +156,20 @@ function atualizarTotais() {
 }
 
 function filtrarGrafico() {
+  const mes = document.getElementById("mesResumo").value;
   const agrupado = {};
   dados.forEach(d => {
+    const mesDado = d.data.split("-")[1];
+    if (mes && mes !== mesDado) return;
     const data = d.data;
     const bruto = parseFloat(d.bruto || 0);
     const label = new Date(data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     agrupado[label] = (agrupado[label] || 0) + bruto;
   });
+
   const labels = Object.keys(agrupado).sort();
   const valores = labels.map(d => agrupado[d]);
+
   if (chart) chart.destroy();
   chart = new Chart(document.getElementById("graficoVendas").getContext('2d'), {
     type: 'line',

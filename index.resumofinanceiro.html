@@ -1,0 +1,293 @@
+<!-- MANTIDO: código idêntico ao anterior -->
+<!-- ALTERADO: removido seletor de empresa e forçada exibição de "VILLA GOURMET" -->
+<!-- ABAIXO ESTÁ O CÓDIGO COMPLETO -->
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Resumo de Entradas - VILLA GOURMET</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7f7f7;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: white;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid #ccc;
+    }
+    header img {
+      height: 50px;
+      margin-right: 20px;
+    }
+    header h1 {
+      margin: 0 auto;
+      font-size: 1.6em;
+      font-weight: bold;
+      text-align: center;
+      flex: 1;
+    }
+    .conteudo {
+      padding: 20px;
+      max-width: 1200px;
+      margin: auto;
+    }
+    .filtros {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+      align-items: end;
+    }
+    .filtros label {
+      font-weight: bold;
+    }
+    .filtros input {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      width: 100%;
+    }
+    .filtros > div {
+      flex: 1 1 200px;
+    }
+    .filtros button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      background-color: #1e1e2f;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .empresa-box {
+      background: white;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+    }
+    .empresa-box h2 {
+      margin: 0 0 10px;
+      font-size: 1.2em;
+      color: #2c3e50;
+    }
+    .empresa-box ul {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+      font-size: 0.95em;
+    }
+    .empresa-box li {
+      margin-bottom: 4px;
+    }
+    .grafico-desktop {
+      display: none;
+    }
+    @media (min-width: 768px) {
+      .empresa-box {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+      }
+      .empresa-conteudo {
+        flex: 1;
+      }
+      .grafico-desktop {
+        display: block;
+        flex: 1;
+        max-width: 60%;
+      }
+      canvas {
+        width: 100% !important;
+        height: auto !important;
+      }
+    }
+    @media (max-width: 600px) {
+      header {
+        flex-direction: column;
+        text-align: center;
+      }
+      header img {
+        margin: 0 0 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <img src="https://static.wixstatic.com/media/d830b0_8cec50a98bbf4775814dbfa5386585e8~mv2.png" alt="Logo CB Systems">
+  <h1>📥 Resumo de Entradas - VILLA GOURMET</h1>
+</header>
+
+<div class="conteudo">
+  <div class="filtros">
+    <div>
+      <label for="dataInicio">Data Início</label>
+      <input type="date" id="dataInicio" />
+    </div>
+    <div>
+      <label for="dataFim">Data Fim</label>
+      <input type="date" id="dataFim" />
+    </div>
+    <div>
+      <button onclick="aplicarFiltro()">Filtrar</button>
+    </div>
+    <div>
+      <button onclick="exportarPDF()">📄 Exportar PDF</button>
+    </div>
+    <div>
+      <button id="enviarWhatsapp">📲 Enviar pelo WhatsApp</button>
+    </div>
+  </div>
+
+  <div id="painel"></div>
+</div>
+
+<script>
+const url = 'https://script.google.com/macros/s/AKfycbz9GQLrIB4oiX0jBQ7yaDO_IiMz3ER7lQT094sp5y2VUGgQWBaz3G1fa7s4ZbiWli_O/exec';
+
+const emojis = {
+  "DINHEIRO": "💵", "CRÉDITO": "💳", "DÉBITO": "🏦", "PIX": "💲",
+  "ONLINE": "💻", "CREDIÁRIO": "📋", "VOUCHER": "🎫", "BONIFICAÇÃO": "🎁",
+  "CONSUMO INTERNO": "👔", "BOLETO": "📃", "MARKETING": "📣", "CONSUMO SÓCIO": "👔",
+  "CATÁLOGO DELIVERY": "🛒", "IFOOD": "🍱", "DELIVERY MUCH": "🍔",
+  "TRANSFERÊNCIA BANCÁRIA": "🏛️", "ERROS DE GARÇONS": "🏛️", "OUTROS": "🗂"
+};
+
+let dados = [];
+
+window.onload = () => {
+  const ontem = new Date();
+  ontem.setDate(ontem.getDate() - 1);
+  document.getElementById("dataInicio").value = ontem.toISOString().split('T')[0];
+  carregarDados();
+};
+
+async function carregarDados() {
+  try {
+    const resposta = await fetch(url);
+    dados = await resposta.json();
+    aplicarFiltro();
+  } catch (e) {
+    document.getElementById("painel").innerHTML = "Erro ao carregar dados.";
+    console.error(e);
+  }
+}
+
+function aplicarFiltro() {
+  const inicio = document.getElementById("dataInicio").value;
+  const fim = document.getElementById("dataFim").value;
+  const painel = document.getElementById("painel");
+  painel.innerHTML = "";
+
+  const dadosFiltrados = dados.filter(item =>
+    item.Empresa === "VILLA GOURMET" &&
+    (!inicio || item.Data >= inicio) &&
+    (!fim || item.Data <= fim)
+  );
+
+  if (!dadosFiltrados.length) {
+    painel.innerHTML = "<p style='text-align:center'>Nenhum dado encontrado.</p>";
+    return;
+  }
+
+  const total = dadosFiltrados.reduce((s, i) => s + parseFloat(i.Valor), 0);
+
+  const box = document.createElement("div");
+  box.className = "empresa-box";
+
+  const conteudo = document.createElement("div");
+  conteudo.className = "empresa-conteudo";
+
+  let html = `<h2>VILLA GOURMET — R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h2><ul>`;
+  dadosFiltrados.forEach(item => {
+    const emoji = emojis[item.Categoria.toUpperCase()] || "📌";
+    html += `<li>${emoji} ${item.Categoria}: R$ ${parseFloat(item.Valor).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</li>`;
+  });
+  html += `</ul>`;
+  conteudo.innerHTML = html;
+
+  const canvasContainer = document.createElement("div");
+  canvasContainer.className = "grafico-desktop";
+  const canvas = document.createElement("canvas");
+  canvasContainer.appendChild(canvas);
+
+  box.appendChild(conteudo);
+  box.appendChild(canvasContainer);
+  painel.appendChild(box);
+
+  desenharGrafico(canvas, dadosFiltrados);
+}
+
+function desenharGrafico(canvas, dadosEmpresa) {
+  if (window.innerWidth < 768) return;
+  new Chart(canvas.getContext("2d"), {
+    type: 'pie',
+    data: {
+      labels: dadosEmpresa.map(e => `${emojis[e.Categoria.toUpperCase()] || "📌"} ${e.Categoria}`),
+      datasets: [{
+        data: dadosEmpresa.map(e => parseFloat(e.Valor)),
+        backgroundColor: dadosEmpresa.map((_, i) => `hsl(${i * 30}, 70%, 60%)`)
+      }]
+    },
+    options: {
+      plugins: {
+        title: { display: true, text: "Distribuição por Categoria" },
+        legend: { position: "bottom" }
+      }
+    }
+  });
+}
+
+function exportarPDF() {
+  const painel = document.getElementById("painel");
+  const opt = {
+    margin: 0.3,
+    filename: 'relatorio-villa-gourmet.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+  };
+  html2pdf().from(painel).set(opt).save();
+}
+
+document.getElementById("enviarWhatsapp").addEventListener("click", () => {
+  const dataInicio = document.getElementById("dataInicio").value;
+  const dataFim = document.getElementById("dataFim").value;
+  const box = document.querySelector(".empresa-box");
+  if (!box) return alert("Nenhum resumo encontrado para enviar.");
+
+  function formatarDataBR(iso) {
+    if (!iso) return "";
+    const [y, m, d] = iso.split("-");
+    return `${d}/${m}/${y}`;
+  }
+
+  const dataBR = (dataInicio === dataFim)
+    ? formatarDataBR(dataInicio)
+    : `${formatarDataBR(dataInicio)} a ${formatarDataBR(dataFim)}`;
+
+  const titulo = box.querySelector("h2")?.innerText;
+  const itens = [...box.querySelectorAll("li")].map(li => li.innerText).join("\n");
+
+  let mensagem = `📈 *Fechamento Diário - VILLA GOURMET* — ${dataBR}\n\n`;
+  mensagem += `*${titulo}*\n${itens}\n`;
+
+  const numero = "5577999761436";
+  const link = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem.trim())}`;
+  window.open(link, "_blank");
+});
+</script>
+
+</body>
+</html>

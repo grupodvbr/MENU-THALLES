@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <title>Cancelamentos - VILLA GOURMET</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -70,7 +71,7 @@
     .item-cancelamento p {
       margin: 4px 0;
     }
-    .btn-whatsapp {
+    .btn-whatsapp, .btn-pdf {
       background-color: #25D366;
       color: white;
       padding: 10px 20px;
@@ -78,8 +79,10 @@
       border: none;
       font-weight: bold;
       cursor: pointer;
-      float: right;
-      margin-bottom: 10px;
+      margin-right: 10px;
+    }
+    .btn-pdf {
+      background-color: #007BFF;
     }
     .total-cancelado {
       background: #fff;
@@ -95,13 +98,9 @@
         flex-direction: column;
         text-align: center;
       }
-      header img {
-        margin: 0 0 10px;
-      }
-      .btn-whatsapp {
-        float: none;
+      .btn-whatsapp, .btn-pdf {
         width: 100%;
-        margin-top: 10px;
+        margin: 10px 0;
       }
     }
   </style>
@@ -120,7 +119,10 @@
     <input type="text" id="filtroBusca" placeholder="Buscar item..." />
   </div>
 
-  <button class="btn-whatsapp" onclick="enviarWhatsapp()">📤 Enviar via WhatsApp</button>
+  <div style="display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 10px;">
+    <button class="btn-pdf" onclick="gerarPDF()">🧾 Exportar PDF</button>
+    <button class="btn-whatsapp" onclick="enviarWhatsapp()">📤 WhatsApp</button>
+  </div>
 
   <div class="total-cancelado">
     📊 Total Cancelado: <span id="totalCancelado">R$ 0,00</span>
@@ -164,6 +166,7 @@
 
     const lista = document.getElementById("listaCancelamentos");
     lista.innerHTML = "";
+    document.getElementById("rankingContainer")?.remove();
 
     let totalGeral = 0;
     const grupo = cancelamentos.filter(c =>
@@ -194,7 +197,6 @@
     grupo.forEach(c => {
       const itemDiv = document.createElement("div");
       itemDiv.className = "item-cancelamento";
-
       const [nomeItem, valorInfo] = c.item.split(" – ");
       itemDiv.innerHTML = `
         <p> ${nomeItem}</p>
@@ -205,11 +207,35 @@
 
     lista.appendChild(divGrupo);
     document.getElementById("totalCancelado").textContent = formatarMoeda(totalGeral);
+
+    exibirRanking(grupo);
+  }
+
+  function exibirRanking(listaItens) {
+    const container = document.createElement("div");
+    container.id = "rankingContainer";
+    container.className = "grupo-empresa";
+    const titulo = document.createElement("h2");
+    titulo.textContent = "🏆 Top 7 Itens Mais Caros";
+    container.appendChild(titulo);
+
+    const ranking = listaItens
+      .slice()
+      .sort((a, b) => b.valor - a.valor)
+      .slice(0, 7);
+
+    ranking.forEach((item, index) => {
+      const linha = document.createElement("p");
+      linha.textContent = `${index + 1}. ${item.item} — ${formatarMoeda(item.valor)} (${formatarDataBR(item.data)})`;
+      container.appendChild(linha);
+    });
+
+    document.getElementById("listaCancelamentos").prepend(container);
   }
 
   function enviarWhatsapp() {
     const grupo = cancelamentos.filter(c => c.empresa === "VILLA GOURMET");
-    let mensagem = `📢 *Resumo de Cancelamentos - VILLA GOURMET*%0A`;
+    let mensagem = `📢 *Cancelamentos - VILLA GOURMET*%0A`;
     let subtotal = 0;
 
     grupo.forEach(c => {
@@ -221,6 +247,18 @@
     const telefone = "5577999761436";
     const url = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
     window.open(url, "_blank");
+  }
+
+  function gerarPDF() {
+    const elemento = document.querySelector(".container");
+    const options = {
+      margin: 0.5,
+      filename: `Cancelamentos_VillaGourmet.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+    html2pdf().set(options).from(elemento).save();
   }
 
   document.getElementById('dataInicio').addEventListener('change', aplicarFiltros);

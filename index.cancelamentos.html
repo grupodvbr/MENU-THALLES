@@ -11,48 +11,42 @@
       margin: 0;
       padding: 0;
     }
-
     header {
       background-color: white;
       padding: 10px 20px;
       display: flex;
       align-items: center;
       border-bottom: 1px solid #ccc;
+      gap: 10px;
     }
-
     header img {
       height: 50px;
-      margin-right: 20px;
+      flex-shrink: 0;
     }
-
     header h1 {
-      margin: 0 auto;
+      margin: 0;
       font-size: 1.6em;
       font-weight: bold;
-      text-align: center;
-      flex: 1;
+      color: #000;
+      flex-grow: 1;
     }
-
     .container {
       padding: 20px;
       max-width: 1200px;
       margin: auto;
     }
-
     .filters {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 20px;
     }
-
     .filters input {
       padding: 10px;
       border-radius: 8px;
       border: 1px solid #ccc;
       flex: 1 1 200px;
     }
-
     .grupo-empresa {
       background: white;
       border-radius: 12px;
@@ -60,33 +54,22 @@
       margin-bottom: 30px;
       padding: 15px 20px;
     }
-
     .grupo-empresa h2 {
       margin-top: 0;
       font-size: 1.4em;
       color: #2c3e50;
     }
-
     .item-cancelamento {
       margin-bottom: 10px;
       border-bottom: 1px solid #eee;
       padding-bottom: 10px;
     }
-
     .item-cancelamento:last-child {
       border-bottom: none;
     }
-
     .item-cancelamento p {
       margin: 4px 0;
     }
-
-    .subtotal {
-      font-weight: bold;
-      margin-top: 10px;
-      font-size: 1.1em;
-    }
-
     .btn-whatsapp {
       background-color: #25D366;
       color: white;
@@ -98,7 +81,6 @@
       float: right;
       margin-bottom: 10px;
     }
-
     .total-cancelado {
       background: #fff;
       padding: 15px;
@@ -108,7 +90,6 @@
       margin-bottom: 20px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.05);
     }
-
     @media (max-width: 600px) {
       header {
         flex-direction: column;
@@ -117,6 +98,11 @@
       header img {
         margin: 0 0 10px;
       }
+      .btn-whatsapp {
+        float: none;
+        width: 100%;
+        margin-top: 10px;
+      }
     }
   </style>
 </head>
@@ -124,7 +110,7 @@
 
 <header>
   <img src="https://static.wixstatic.com/media/d830b0_8cec50a98bbf4775814dbfa5386585e8~mv2.png" alt="Logo CB Systems">
-  <h1>📋 Cancelamentos - VILLA GOURMET</h1>
+  <h1>Cancelamentos - VILLA GOURMET</h1>
 </header>
 
 <div class="container">
@@ -144,58 +130,55 @@
 </div>
 
 <script>
-const URL_SCRIPT = 'https://script.google.com/macros/s/AKfycby6kNirWdyaFymip0MFrqTNoItMgqkXJrzwf41Qxe2P1j8BoBILtnyws8o4f5sUdg-T3w/exec';
-let cancelamentos = [];
+  const URL_SCRIPT = 'https://script.google.com/macros/s/AKfycby6kNirWdyaFymip0MFrqTNoItMgqkXJrzwf41Qxe2P1j8BoBILtnyws8o4f5sUdg-T3w/exec';
+  let cancelamentos = [];
 
-async function carregarDados() {
-  const res = await fetch(URL_SCRIPT);
-  const dados = await res.json();
-  cancelamentos = dados.filter(c => c.empresa === "VILLA GOURMET");
-  aplicarFiltros();
-  preencherDataPadrao();
-}
+  function preencherDataPadrao() {
+    const hoje = new Date();
+    const ontem = new Date(hoje);
+    ontem.setDate(hoje.getDate() - 1);
+    const formato = d => d.toISOString().split('T')[0];
+    document.getElementById("dataInicio").value = formato(ontem);
+    document.getElementById("dataFim").value = formato(ontem);
+  }
 
-function formatarMoeda(valor) {
-  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
+  async function carregarDados() {
+    const res = await fetch(URL_SCRIPT);
+    cancelamentos = await res.json();
+    aplicarFiltros();
+  }
 
-function formatarDataBR(dataISO) {
-  const [ano, mes, dia] = dataISO.split("-");
-  return `${dia}/${mes}/${ano}`;
-}
+  function formatarMoeda(valor) {
+    return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  }
 
-function preencherDataPadrao() {
-  const hoje = new Date();
-  const ontem = new Date(hoje);
-  ontem.setDate(hoje.getDate() - 1);
-  const formato = d => d.toISOString().split('T')[0];
-  document.getElementById("dataInicio").value = formato(ontem);
-  document.getElementById("dataFim").value = formato(ontem);
-}
+  function formatarDataBR(dataISO) {
+    const [ano, mes, dia] = dataISO.split("-");
+    return `${dia}/${mes}/${ano}`;
+  }
 
-function aplicarFiltros() {
-  const busca = document.getElementById('filtroBusca').value.toLowerCase();
-  const dataInicio = document.getElementById('dataInicio').value;
-  const dataFim = document.getElementById('dataFim').value;
+  function aplicarFiltros() {
+    const busca = document.getElementById('filtroBusca').value.toLowerCase();
+    const dataInicio = document.getElementById('dataInicio').value;
+    const dataFim = document.getElementById('dataFim').value;
 
-  const lista = document.getElementById("listaCancelamentos");
-  lista.innerHTML = "";
-  document.getElementById("rankingContainer")?.remove();
+    const lista = document.getElementById("listaCancelamentos");
+    lista.innerHTML = "";
 
-  let totalGeral = 0;
-  const grupo = [];
+    let totalGeral = 0;
+    const grupo = cancelamentos.filter(c =>
+      c.empresa === "VILLA GOURMET" &&
+      (!busca || c.item.toLowerCase().includes(busca)) &&
+      (!dataInicio || c.data >= dataInicio) &&
+      (!dataFim || c.data <= dataFim)
+    );
 
-  cancelamentos.forEach(c => {
-    if (
-      (busca && !c.item.toLowerCase().includes(busca)) ||
-      (dataInicio && c.data < dataInicio) ||
-      (dataFim && c.data > dataFim)
-    ) return;
+    if (grupo.length === 0) {
+      lista.innerHTML = "<p>Nenhum cancelamento encontrado.</p>";
+      document.getElementById("totalCancelado").textContent = formatarMoeda(0);
+      return;
+    }
 
-    grupo.push(c);
-  });
-
-  if (grupo.length > 0) {
     let subtotal = 0;
     const divGrupo = document.createElement("div");
     divGrupo.className = "grupo-empresa";
@@ -214,73 +197,40 @@ function aplicarFiltros() {
 
       const [nomeItem, valorInfo] = c.item.split(" – ");
       itemDiv.innerHTML = `
-        <p>${nomeItem}</p>
+        <p> ${nomeItem}</p>
         <p>💸 ${valorInfo || formatarMoeda(c.valor)}</p>
       `;
       divGrupo.appendChild(itemDiv);
     });
 
     lista.appendChild(divGrupo);
-    exibirRanking(grupo);
+    document.getElementById("totalCancelado").textContent = formatarMoeda(totalGeral);
   }
 
-  document.getElementById("totalCancelado").textContent = formatarMoeda(totalGeral);
-}
+  function enviarWhatsapp() {
+    const grupo = cancelamentos.filter(c => c.empresa === "VILLA GOURMET");
+    let mensagem = `📢 *Resumo de Cancelamentos - VILLA GOURMET*%0A`;
+    let subtotal = 0;
 
-function exibirRanking(listaItens) {
-  const container = document.createElement("div");
-  container.id = "rankingContainer";
-  container.className = "grupo-empresa";
-  const titulo = document.createElement("h2");
-  titulo.textContent = "🏆 Top 7 Itens Mais Caros";
-  container.appendChild(titulo);
+    grupo.forEach(c => {
+      subtotal += c.valor;
+      mensagem += `\n${c.item} - 💸 ${formatarMoeda(c.valor)} - ${formatarDataBR(c.data)}`;
+    });
+    mensagem += `\n\nSubtotal: *${formatarMoeda(subtotal)}*`;
 
-  const ranking = listaItens
-    .slice()
-    .sort((a, b) => b.valor - a.valor)
-    .slice(0, 7);
+    const telefone = "5577999761436";
+    const url = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
+    window.open(url, "_blank");
+  }
 
-  ranking.forEach((item, index) => {
-    const linha = document.createElement("p");
-    linha.textContent = `${index + 1}. ${item.item} — ${formatarMoeda(item.valor)} (${formatarDataBR(item.data)})`;
-    container.appendChild(linha);
-  });
+  document.getElementById('dataInicio').addEventListener('change', aplicarFiltros);
+  document.getElementById('dataFim').addEventListener('change', aplicarFiltros);
+  document.getElementById('filtroBusca').addEventListener('input', aplicarFiltros);
 
-  document.getElementById("listaCancelamentos").prepend(container);
-}
-
-function enviarWhatsapp() {
-  let mensagem = `📢 *Resumo de Cancelamentos - VILLA GOURMET*%0A`;
-  const dataInicio = document.getElementById("dataInicio").value;
-  const dataFim = document.getElementById("dataFim").value;
-  const busca = document.getElementById("filtroBusca").value.toLowerCase();
-
-  const itens = cancelamentos.filter(c =>
-    (!dataInicio || c.data >= dataInicio) &&
-    (!dataFim || c.data <= dataFim) &&
-    (!busca || c.item.toLowerCase().includes(busca))
-  );
-
-  if (!itens.length) return alert("Nenhum cancelamento encontrado.");
-
-  let subtotal = 0;
-  itens.forEach(c => {
-    subtotal += c.valor;
-    mensagem += `\n${c.item} - 💸 ${formatarMoeda(c.valor)} - ${formatarDataBR(c.data)}`;
-  });
-
-  mensagem += `\n\nSubtotal: *${formatarMoeda(subtotal)}*`;
-
-  const telefone = "5577999761436";
-  const url = `https://wa.me/${telefone}?text=${encodeURIComponent(mensagem)}`;
-  window.open(url, "_blank");
-}
-
-document.getElementById('dataInicio').addEventListener('change', aplicarFiltros);
-document.getElementById('dataFim').addEventListener('change', aplicarFiltros);
-document.getElementById('filtroBusca').addEventListener('input', aplicarFiltros);
-
-carregarDados();
+  window.onload = () => {
+    preencherDataPadrao();
+    carregarDados();
+  };
 </script>
 
 </body>

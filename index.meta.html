@@ -175,22 +175,13 @@ async function carregarMetas() {
   const empresa = "VILLA GOURMET";
 
   let diasCorridosNoMes = 30;
-  let diasCorridosAteData = 30;
 
   if (dataFim) {
     const dataRef = new Date(dataFim);
     const mesRef = dataRef.getMonth();
     const anoRef = dataRef.getFullYear();
-    const hoje = new Date();
-
     const ultimoDiaMesRef = new Date(anoRef, mesRef + 1, 0);
     diasCorridosNoMes = ultimoDiaMesRef.getDate();
-
-    if (anoRef === hoje.getFullYear() && mesRef === hoje.getMonth()) {
-      diasCorridosAteData = hoje.getDate();
-    } else {
-      diasCorridosAteData = dataRef.getDate();
-    }
   }
 
   const params = new URLSearchParams();
@@ -213,17 +204,19 @@ async function carregarMetas() {
       const previsto = parseFloat(linha["Previsto"]);
       const realizado = parseFloat(linha["Realizado"].toString().replace(",", "."));
       const atingido = previsto > 0 ? (realizado / previsto) * 100 : 0;
- // Obtemos a última data com base nos dados recebidos
-const diasUtilizados = metas
-  .filter(m => m.Empresa === linha.Empresa)
-  .map(m => m.Data)
-  .filter(Boolean); // remove valores nulos ou undefined
 
-const diasComDados = [...new Set(diasUtilizados)].length || 1; // garante que não seja 0
+      const dadosEmpresa = metas.filter(m => m.Empresa === linha.Empresa);
+      const diasComValores = [...new Set(
+        dadosEmpresa
+          .filter(m => {
+            const valor = parseFloat(m.Realizado?.toString().replace(",", "."));
+            return !isNaN(valor) && valor > 0;
+          })
+          .map(m => m.Data)
+      )].length || 1;
 
-const mediaDiaria = realizado / diasComDados;
-const previsaoFinal = mediaDiaria * diasCorridosNoMes;
-
+      const mediaDiaria = realizado / diasComValores;
+      const previsaoFinal = mediaDiaria * diasCorridosNoMes;
       const previsaoPercentual = previsto > 0 ? (previsaoFinal / previsto) * 100 : 0;
 
       const div = document.createElement("div");

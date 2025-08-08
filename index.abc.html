@@ -225,7 +225,7 @@
     <label>
       🏢 Empresa:
       <select id="filtroEmpresa" disabled>
-  <option value="VILLA GOURMET" selected>VILLA GOURMET</option>
+  <option value="ABC DE VENDAS VILLA GOURMET" selected>ABC DE VENDAS VILLA GOURMET</option>
 </select>
     </label>
     <label>
@@ -286,7 +286,7 @@ async function carregarDados(){
 }
 
 function preencherFiltros() {
-  document.getElementById('filtroEmpresa').value = "VILLA GOURMET";
+  document.getElementById('filtroEmpresa').value = "ABC DE VENDAS VILLA GOURMET";
 }
 function aplicarFiltros(){
   const eF = document.getElementById('filtroEmpresa').value;
@@ -295,7 +295,7 @@ function aplicarFiltros(){
   const df = document.getElementById('dataFim').value;
 
   const filt = dados.filter(d=>{
-    if (d.empresa !== "VILLA GOURMET") return false;
+    if (d.empresa !== "ABC DE VENDAS VILLA GOURMET") return false;
     if(busca && !d.produto.toLowerCase().includes(busca)) return false;
     if(di && d.data<di) return false;
     if(df && d.data>df) return false;

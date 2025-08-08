@@ -7,6 +7,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root{--blue:#007bff;--green:#00c853;--amber:#ffb300;--red:#ff3b30;--bg:#f9f9f9}
+    *{box-sizing:border-box}
     body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#fff;color:#111}
     header{padding:16px 12px;border-bottom:1px solid #e9e9e9;text-align:center;background:#fff;position:sticky;top:0;z-index:5}
     header img{height:56px}
@@ -22,6 +23,7 @@
     .empresa-section h3{margin:6px 0 8px;font-size:1rem}
     .detalhes{margin-top:8px;font-size:.95rem}
     .muted{opacity:.75}
+    #statusMsg{display:none;margin:6px 0 12px}
   </style>
 </head>
 <body>
@@ -38,25 +40,48 @@
     <button id="btnAplicar">Aplicar</button>
   </div>
 
+  <div id="statusMsg"></div>
+
+  <!-- 1) Linha geral de vendas (estilo do print) -->
   <div class="card"><canvas id="graficoLinhaVendas"></canvas></div>
+
+  <!-- 2) Linhas por modalidade: Vendido x Recebido -->
   <div class="card"><canvas id="graficoModalidades"></canvas></div>
+
+  <!-- 3) % Crédito recebido -->
   <div class="card"><canvas id="graficoPctCredito"></canvas></div>
+
+  <!-- 4) Previsão x Recebido (crédito) -->
   <div class="card"><canvas id="graficoPrevisto"></canvas></div>
+
+  <!-- 5) Pizzas por empresa (pequenas; selecionada cresce + mostra totais) -->
   <div id="graficosPizza" class="grid"></div>
 </div>
 
 <script>
+// === Endpoints ===
+// VENDAS vem em linhas: { Empresa, Data, Categoria, Valor }
 const URL_VENDAS  = "https://script.google.com/macros/s/AKfycbz9GQLrIB4oiX0jBQ7yaDO_IiMz3ER7lQT094sp5y2VUGgQWBaz3G1fa7s4ZbiWli_O/exec";
+// EXTRATO idem (para recebido): { Empresa, Data, Categoria, Valor }
 const URL_EXTRATO = "https://script.google.com/macros/s/AKfycbyGSP5oj9xotdhbnLsZ4hY4m1_dEbd2YQ-N3o7Y-GCwd7RvCTlSzhYee8Jn6RdnKcx2ug/exec";
 
-let baseVendas = [];
-let baseReceb  = [];
-let vendasGrp  = [];
-let recebGrp   = [];
+// === Estado ===
+let baseVendas = [];     // linhas cruas
+let baseReceb  = [];     // linhas cruas
+let vendasGrp  = [];     // agrupado por (empresa,data) -> modalidades
+let recebGrp   = [];     // idem para recebido
 
+// Charts refs
 let chLinha=null, chModal=null, chPct=null, chPrev=null;
 
-// ================= Utils =================
+// === Helpers ===
+function showStatus(msg,type='info'){
+  const el=document.getElementById('statusMsg');
+  el.style.display='block';
+  el.style.color= type==='error' ? '#c62828' : (type==='warn' ? '#ff8f00' : '#444');
+  el.textContent=msg;
+}
+
 function setDefaultDates(){
   const hoje=new Date();
   const ontem=new Date(hoje); ontem.setDate(ontem.getDate()-1);
@@ -89,16 +114,6 @@ function agruparPorDiaEmpresa(lista){
     if(cat.includes('PREV')) mapa[k].previsto += v; // opcional: previsão
   }
   return Object.values(mapa);
-}
-
-function preencherEmpresas(){
-  const select=document.getElementById('filtroEmpresa');
-  const nomes=new Set([
-    ...baseVendas.map(x=>x.Empresa),
-    ...baseReceb.map(x=>x.Empresa)
-  ].filter(Boolean));
-  select.innerHTML='<option value="">Todas</option>';
-  [...nomes].sort().forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;select.appendChild(o)});
 }
 
 function filtrarColecao(col){
@@ -179,19 +194,42 @@ function drawPizzas(vendas,receb){
 
 // =============== Boot ===============
 async function boot(){
-  setDefaultDates();
-  const [vRaw,rRaw]=await Promise.all([
-    fetch(URL_VENDAS).then(x=>x.json()),
-    fetch(URL_EXTRATO).then(x=>x.json())
-  ]);
-  baseVendas=normalizeRows(vRaw);
-  baseReceb =normalizeRows(rRaw);
+  try{
+    // garante datas padrão sempre que abrir a página
+    setDefaultDates();
+    showStatus('Carregando dados...', 'info');
 
-  vendasGrp=agruparPorDiaEmpresa(baseVendas);
-  recebGrp =agruparPorDiaEmpresa(baseReceb);
+    const [vRaw,rRaw]=await Promise.all([
+      fetch(URL_VENDAS).then(x=>x.json()).catch(()=>[]),
+      fetch(URL_EXTRATO).then(x=>x.json()).catch(()=>[])
+    ]);
 
-  preencherEmpresas(); // <- garante que as empresas aparecem no select
-  aplicarFiltrosEDesenhar();
+    baseVendas=normalizeRows(vRaw||[]);
+    baseReceb =normalizeRows(rRaw||[]);
+
+    if(baseVendas.length===0 && baseReceb.length===0){
+      showStatus('Nenhum dado retornado dos scripts. Verifique URLs/permissões.', 'warn');
+    } else {
+      showStatus('Dados carregados.', 'info');
+    }
+
+    vendasGrp=agruparPorDiaEmpresa(baseVendas);
+    recebGrp =agruparPorDiaEmpresa(baseReceb);
+
+    // Popular empresas com o que existir
+    const nomes=new Set([
+      ...baseVendas.map(x=>x.Empresa),
+      ...baseReceb.map(x=>x.Empresa)
+    ].filter(Boolean));
+    const sel=document.getElementById('filtroEmpresa');
+    sel.innerHTML='<option value="">Todas</option>';
+    [...nomes].sort().forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o)});
+
+    aplicarFiltrosEDesenhar();
+  }catch(e){
+    console.error(e);
+    showStatus('Erro ao carregar/desenhar: '+e.message, 'error');
+  }
 }
 
 function aplicarFiltrosEDesenhar(){
@@ -204,10 +242,13 @@ function aplicarFiltrosEDesenhar(){
   drawPizzas(vFil,rFil);
 }
 
-document.getElementById('btnAplicar').addEventListener('click',aplicarFiltrosEDesenhar);
+// Eventos
+window.addEventListener('DOMContentLoaded', ()=>{
+  setDefaultDates();
+  boot();
+});
 
-// start
-boot();
+document.getElementById('btnAplicar').addEventListener('click',aplicarFiltrosEDesenhar);
 </script>
 </body>
 </html>

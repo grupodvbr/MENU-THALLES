@@ -210,7 +210,7 @@
 <body>
 <header>
   <img src="https://github.com/ClenaStore/painel-principal/blob/main/img/GRUPO%20DV%20(1).png?raw=true" alt="Logo CB Systems">
-  <h1 id="tituloPainel">Painel ABC de Vendas</h1>
+ <h1 id="tituloPainel">ABC DE VENDAS VILLA GOURMET</h1>
 </header>
 <div class="container">
   <div class="filters">
@@ -222,13 +222,12 @@
       📅 Data Fim:
       <input type="date" id="dataFim" />
     </label>
-    <label style="display: none">
-  🏢 Empresa:
-  <select id="filtroEmpresa" disabled>
-    <option selected>VILLA GOURMET</option>
-  </select>
-</label>
-
+    <label>
+      🏢 Empresa:
+      <select id="filtroEmpresa" disabled>
+  <option value="VILLA GOURMET" selected>VILLA GOURMET</option>
+</select>
+    </label>
     <label>
       🔍 Busca:
       <input type="text" id="filtroBusca" placeholder="Buscar produto..." />
@@ -286,8 +285,9 @@ async function carregarDados(){
   aplicarFiltros();
 }
 
-
-
+function preencherFiltros() {
+  document.getElementById('filtroEmpresa').value = "VILLA GOURMET";
+}
 function aplicarFiltros(){
   const eF = document.getElementById('filtroEmpresa').value;
   const busca = document.getElementById('filtroBusca').value.toLowerCase();
@@ -295,7 +295,7 @@ function aplicarFiltros(){
   const df = document.getElementById('dataFim').value;
 
   const filt = dados.filter(d=>{
-   if((d.empresa || '').trim().toUpperCase() !== 'VILLA GOURMET') return false;
+    if (d.empresa !== "VILLA GOURMET") return false;
     if(busca && !d.produto.toLowerCase().includes(busca)) return false;
     if(di && d.data<di) return false;
     if(df && d.data>df) return false;

@@ -276,6 +276,7 @@ function formatDataBr(iso){
 async function carregarDados(){
   const res = await fetch(URL_SCRIPT);
   dados = await res.json();
+  console.log(dados); // Ver se os dados chegaram corretamente
   preencherFiltros();
   aplicarFiltros();
 }
@@ -531,7 +532,6 @@ window.onload = () => {
   document.getElementById('dataFim').value = ontem.toISOString().split('T')[0];
 
   carregarDados();
-  document.getElementById('filtroEmpresa').addEventListener('change', aplicarFiltros);
   document.getElementById('dataInicio').addEventListener('change', aplicarFiltros);
   document.getElementById('dataFim').addEventListener('change', aplicarFiltros);
   document.getElementById('filtroBusca').addEventListener('input', aplicarFiltros);

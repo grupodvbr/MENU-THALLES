@@ -81,20 +81,26 @@
 </div>
 
 <script>
-const URL_SCRIPT = "https://script.google.com/macros/s/AKfycbypZ0ibLQGEbGLQNr-UdmmSn-fbde-nz4KUt6RFUjp0lZbHmGTxcHvKVZmmFxL5b5roLA/exec";
-let dados = [];
+const URL_EXTRATO = "https://script.google.com/macros/s/AKfycbyGSP5oj9xotdhbnLsZ4hY4m1_dEbd2YQ-N3o7Y-GCwd7RvCTlSzhYee8Jn6RdnKcx2ug/exec";
+const URL_VENDAS = "https://script.google.com/macros/s/AKfycbz9GQLrIB4oiX0jBQ7yaDO_IiMz3ER7lQT094sp5y2VUGgQWBaz3G1fa7s4ZbiWli_O/exec";
+let extrato = [];
+let vendas = [];
 
 async function carregarDados() {
-  const res = await fetch(URL_SCRIPT);
-  dados = await res.json();
+  const [resExtrato, resVendas] = await Promise.all([
+    fetch(URL_EXTRATO),
+    fetch(URL_VENDAS)
+  ]);
+  extrato = await resExtrato.json();
+  vendas = await resVendas.json();
   popularEmpresas();
   filtrar();
 }
 
 function popularEmpresas() {
   const select = document.getElementById("filtroEmpresa");
-  const empresasUnicas = [...new Set(dados.map(d => d.empresa))];
-  empresasUnicas.forEach(empresa => {
+  const empresas = [...new Set([...extrato.map(e => e.empresa), ...vendas.map(v => v.empresa)])];
+  empresas.forEach(empresa => {
     const opt = document.createElement("option");
     opt.value = empresa;
     opt.textContent = empresa;
@@ -106,47 +112,48 @@ function filtrar() {
   const data = document.getElementById("filtroData").value;
   const empresa = document.getElementById("filtroEmpresa").value;
 
-  const filtrados = dados.filter(d => {
-    return (!data || d.data === data) && (!empresa || d.empresa === empresa);
+  const filtro = d => (!data || d.data === data) && (!empresa || d.empresa === empresa);
+  const extratoFiltrado = extrato.filter(filtro);
+  const vendasFiltrado = vendas.filter(filtro);
+
+  const labels = extratoFiltrado.map(d => d.empresa + " (" + d.data + ")");
+  const dados = extratoFiltrado.map(d => {
+    const v = vendasFiltrado.find(x => x.data === d.data && x.empresa === d.empresa) || {};
+    return {
+      label: d.empresa + " (" + d.data + ")",
+      debito: v.debito || 0,
+      debitoRecebido: d.Valornoextratodebito || 0,
+      credito: v.credito || 0,
+      creditoRecebido: d.Valornoextratocredito || 0,
+      pix: v.pix || 0,
+      pixRecebido: d.Valornoextratopix || 0,
+      voucher: v.voucher || 0,
+      voucherRecebido: d.Valornoextratovoucher || 0,
+      previsao: d.Previsaocredito || 0
+    }
   });
 
-  const labels = filtrados.map(d => d.empresa + " (" + d.data + ")");
-  const recebidos = filtrados.map(d => [
-    d.Valornoextratodebito || 0,
-    d.Valornoextratocredito || 0,
-    d.Valornoextratopix || 0,
-    d.Valornoextratovoucher || 0
-  ]);
-  const vendas = filtrados.map(d => [
-    d.Vendasdebito || 0,
-    d.Vendascredito || 0,
-    d.Vendaspix || 0,
-    d.Vendasvoucher || 0
-  ]);
-  const previsao = filtrados.map(d => d.Previsaocredito || 0);
-  const recebidoCredito = filtrados.map(d => d.Valornoextratocredito || 0);
-
-  renderRecebimentos(labels, vendas, recebidos);
-  renderFalhas(labels, vendas, recebidos);
-  renderPrevisaoCredito(labels, previsao, recebidoCredito);
+  renderRecebimentos(dados);
+  renderFalhas(dados);
+  renderPrevisaoCredito(dados);
 }
 
-function renderRecebimentos(labels, vendas, recebidos) {
+function renderRecebimentos(dados) {
   const ctx = document.getElementById("graficoRecebimentos").getContext("2d");
   if (window.recebimentosChart) window.recebimentosChart.destroy();
   window.recebimentosChart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels,
+      labels: dados.map(d => d.label),
       datasets: [
-        { label: "Débito Vendido", data: vendas.map(v => v[0]), backgroundColor: "#007bff" },
-        { label: "Débito Recebido", data: recebidos.map(r => r[0]), backgroundColor: "#66b3ff" },
-        { label: "Crédito Vendido", data: vendas.map(v => v[1]), backgroundColor: "#28a745" },
-        { label: "Crédito Recebido", data: recebidos.map(r => r[1]), backgroundColor: "#98e698" },
-        { label: "Pix Vendido", data: vendas.map(v => v[2]), backgroundColor: "#ffc107" },
-        { label: "Pix Recebido", data: recebidos.map(r => r[2]), backgroundColor: "#ffe680" },
-        { label: "Voucher Vendido", data: vendas.map(v => v[3]), backgroundColor: "#dc3545" },
-        { label: "Voucher Recebido", data: recebidos.map(r => r[3]), backgroundColor: "#f5a6a6" },
+        { label: "Débito Vendido", data: dados.map(d => d.debito), backgroundColor: "#007bff" },
+        { label: "Débito Recebido", data: dados.map(d => d.debitoRecebido), backgroundColor: "#66b3ff" },
+        { label: "Crédito Vendido", data: dados.map(d => d.credito), backgroundColor: "#28a745" },
+        { label: "Crédito Recebido", data: dados.map(d => d.creditoRecebido), backgroundColor: "#98e698" },
+        { label: "Pix Vendido", data: dados.map(d => d.pix), backgroundColor: "#ffc107" },
+        { label: "Pix Recebido", data: dados.map(d => d.pixRecebido), backgroundColor: "#ffe680" },
+        { label: "Voucher Vendido", data: dados.map(d => d.voucher), backgroundColor: "#dc3545" },
+        { label: "Voucher Recebido", data: dados.map(d => d.voucherRecebido), backgroundColor: "#f5a6a6" }
       ]
     },
     options: {
@@ -165,19 +172,14 @@ function renderRecebimentos(labels, vendas, recebidos) {
   });
 }
 
-function renderFalhas(labels, vendas, recebidos) {
+function renderFalhas(dados) {
   const ctx = document.getElementById("graficoFalhas").getContext("2d");
   if (window.falhasChart) window.falhasChart.destroy();
-  const falhasCredito = vendas.map((v, i) => {
-    const recebido = recebidos[i][1];
-    const vendido = v[1];
-    if (vendido == 0) return 0;
-    return ((vendido - recebido) / vendido * 100).toFixed(1);
-  });
+  const falhasCredito = dados.map(d => d.credito ? (((d.credito - d.creditoRecebido) / d.credito) * 100).toFixed(1) : 0);
   window.falhasChart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels,
+      labels: dados.map(d => d.label),
       datasets: [{
         label: "% Falha no Crédito",
         data: falhasCredito,
@@ -201,16 +203,16 @@ function renderFalhas(labels, vendas, recebidos) {
   });
 }
 
-function renderPrevisaoCredito(labels, previsao, recebido) {
+function renderPrevisaoCredito(dados) {
   const ctx = document.getElementById("graficoPrevisao").getContext("2d");
   if (window.previsaoChart) window.previsaoChart.destroy();
   window.previsaoChart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels,
+      labels: dados.map(d => d.label),
       datasets: [
-        { label: "Previsto Crédito", data: previsao, backgroundColor: "#6f42c1" },
-        { label: "Recebido Crédito", data: recebido, backgroundColor: "#b39ddb" }
+        { label: "Previsto Crédito", data: dados.map(d => d.previsao), backgroundColor: "#6f42c1" },
+        { label: "Recebido Crédito", data: dados.map(d => d.creditoRecebido), backgroundColor: "#b39ddb" }
       ]
     },
     options: {

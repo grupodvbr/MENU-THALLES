@@ -69,10 +69,11 @@
   background: white;
   padding: 15px;
   border-radius: 12px;
-  flex: 1 1 30%;
+  flex: 1 1 100%;
   box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-  min-width: 280px;
+  min-width: unset;
 }
+
 
 .card-analise h3 {
   margin-top: 0;
@@ -205,6 +206,48 @@
       padding: 20px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.05);
     }
+    /* Impede qualquer estouro de largura */
+* {
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Ajusta layout principal */
+.container {
+  padding: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsividade nos filtros */
+.filters {
+  flex-direction: column;
+  gap: 15px;
+}
+
+.filters label {
+  flex: 1 1 100%;
+}
+
+/* Gráficos sempre ajustados à tela */
+canvas {
+  width: 100% !important;
+  height: auto !important;
+}
+
+/* Cartões em coluna no mobile */
+.card-analise {
+  flex: 1 1 100%;
+  min-width: unset; /* Remove largura mínima que causa quebra */
+}
+
   </style>
 </head>
 <body>

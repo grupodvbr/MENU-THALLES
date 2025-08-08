@@ -38,45 +38,41 @@
     <button id="btnAplicar">Aplicar</button>
   </div>
 
-  <!-- 1) Linha geral de vendas (estilo do print) -->
   <div class="card"><canvas id="graficoLinhaVendas"></canvas></div>
-
-  <!-- 2) Linhas por modalidade: Vendido x Recebido -->
   <div class="card"><canvas id="graficoModalidades"></canvas></div>
-
-  <!-- 3) % Crédito recebido -->
   <div class="card"><canvas id="graficoPctCredito"></canvas></div>
-
-  <!-- 4) Previsão x Recebido (crédito) -->
   <div class="card"><canvas id="graficoPrevisto"></canvas></div>
-
-  <!-- 5) Pizzas por empresa (pequenas; selecionada cresce + mostra totais) -->
   <div id="graficosPizza" class="grid"></div>
 </div>
 
 <script>
-// === Endpoints ===
-// VENDAS vem em linhas: { Empresa, Data, Categoria, Valor }
 const URL_VENDAS  = "https://script.google.com/macros/s/AKfycbz9GQLrIB4oiX0jBQ7yaDO_IiMz3ER7lQT094sp5y2VUGgQWBaz3G1fa7s4ZbiWli_O/exec";
-// EXTRATO idem (para recebido): { Empresa, Data, Categoria, Valor }
 const URL_EXTRATO = "https://script.google.com/macros/s/AKfycbyGSP5oj9xotdhbnLsZ4hY4m1_dEbd2YQ-N3o7Y-GCwd7RvCTlSzhYee8Jn6RdnKcx2ug/exec";
 
-// === Estado ===
-let baseVendas = [];     // linhas cruas
-let baseReceb = [];      // linhas cruas
-let vendasGrp = [];      // agrupado por (empresa,data) -> modalidades
-let recebGrp = [];       // idem para recebido
+let baseVendas = [];
+let baseReceb  = [];
+let vendasGrp  = [];
+let recebGrp   = [];
 
-// Charts refs
 let chLinha=null, chModal=null, chPct=null, chPrev=null;
 
-// === Helpers ===
+// ================= Utils =================
 function setDefaultDates(){
   const hoje=new Date();
   const ontem=new Date(hoje); ontem.setDate(ontem.getDate()-1);
   const inicio=new Date(hoje.getFullYear(),hoje.getMonth(),1);
   document.getElementById('filtroDataInicio').value=inicio.toISOString().split('T')[0];
   document.getElementById('filtroDataFim').value=ontem.toISOString().split('T')[0];
+}
+
+// Normaliza chaves (aceita Empresa/empresa etc.)
+function normalizeRows(rows){
+  return (rows||[]).map(r=>({
+    Empresa:  r.Empresa  ?? r.empresa ?? r.EMPRESA ?? '',
+    Data:     r.Data     ?? r.data    ?? r.DATA    ?? '',
+    Categoria:r.Categoria?? r.categoria?? r.CATEGORIA?? '',
+    Valor:    Number(r.Valor ?? r.valor ?? r.VALOR ?? 0)
+  })).filter(r=>r.Empresa && r.Data);
 }
 
 function agruparPorDiaEmpresa(lista){
@@ -90,15 +86,17 @@ function agruparPorDiaEmpresa(lista){
     else if(cat.includes('CRÉDITO')) mapa[k].credito += v;
     else if(cat.includes('PIX')) mapa[k].pix += v;
     else if(cat.includes('VOUCHER')) mapa[k].voucher += v;
-    // se sua planilha tiver campo de previsão dentro de Categoria, trate aqui
-    if(cat.includes('PREV')) mapa[k].previsto += v;
+    if(cat.includes('PREV')) mapa[k].previsto += v; // opcional: previsão
   }
   return Object.values(mapa);
 }
 
-function preencherEmpresasDoAgrupado(){
+function preencherEmpresas(){
   const select=document.getElementById('filtroEmpresa');
-  const nomes=new Set([...vendasGrp.map(x=>x.empresa), ...recebGrp.map(x=>x.empresa)].filter(Boolean));
+  const nomes=new Set([
+    ...baseVendas.map(x=>x.Empresa),
+    ...baseReceb.map(x=>x.Empresa)
+  ].filter(Boolean));
   select.innerHTML='<option value="">Todas</option>';
   [...nomes].sort().forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;select.appendChild(o)});
 }
@@ -110,9 +108,8 @@ function filtrarColecao(col){
   return col.filter(d=>(!emp||d.empresa===emp) && d.data>=ini && d.data<=fim);
 }
 
-// === Desenho de gráficos ===
+// =============== Charts ===============
 function drawLinhaGeral(vendas){
-  // soma total vendido por dia
   const somaDia={};
   vendas.forEach(d=>{somaDia[d.data]=(somaDia[d.data]||0)+d.debito+d.credito+d.pix+d.voucher});
   const dias=Object.keys(somaDia).sort();
@@ -131,10 +128,7 @@ function drawModalidades(vendas,receb){
   const cores={debito:['#0d47a1','#4fc3f7'],credito:['#1b5e20','#81c784'],pix:['#ffb300','#ffe082'],voucher:['#c62828','#ef9a9a']};
   const ds=[];
   mods.forEach(m=>{ds.push({label:`${m[0].toUpperCase()+m.slice(1)} Vendido`,data:[],borderColor:cores[m][0],fill:false});ds.push({label:`${m[0].toUpperCase()+m.slice(1)} Recebido`,data:[],borderColor:cores[m][1],fill:false});});
-  dias.forEach(d=>{
-    const v=vendas.find(x=>x.data===d)||{}; const r=receb.find(x=>x.data===d)||{};
-    mods.forEach((m,i)=>{ds[i*2].data.push(v[m]||0); ds[i*2+1].data.push(r[m]||0)});
-  });
+  dias.forEach(d=>{const v=vendas.find(x=>x.data===d)||{}; const r=receb.find(x=>x.data===d)||{}; mods.forEach((m,i)=>{ds[i*2].data.push(v[m]||0); ds[i*2+1].data.push(r[m]||0)});});
   if(chModal) chModal.destroy();
   chModal=new Chart(document.getElementById('graficoModalidades'),{type:'line',data:{labels:dias,datasets:ds},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
 }
@@ -148,7 +142,7 @@ function drawPctCredito(vendas,receb){
 
 function drawPrevisto(vendas,receb){
   const dias=[...new Set([...vendas.map(v=>v.data),...receb.map(r=>r.data)])].sort();
-  const prev=dias.map(d=>vendas.find(x=>x.data===d)?.credito||0); // usando crédito vendido como "previsto"
+  const prev=dias.map(d=>vendas.find(x=>x.data===d)?.credito||0); // crédito vendido como previsto
   const rec =dias.map(d=>receb.find(x=>x.data===d)?.credito||0);
   if(chPrev) chPrev.destroy();
   chPrev=new Chart(document.getElementById('graficoPrevisto'),{type:'bar',data:{labels:dias,datasets:[{label:'Previsto Crédito',data:prev,backgroundColor:'#66CCFF'},{label:'Crédito Recebido',data:rec,backgroundColor:'#99FFCC'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{y:{ticks:{callback:v=>`R$ ${Number(v).toLocaleString('pt-BR')}`}}}});
@@ -168,7 +162,7 @@ function drawPizzas(vendas,receb){
     vendas.filter(x=>x.empresa===emp).forEach(x=>{totV.debito+=x.debito;totV.credito+=x.credito;totV.pix+=x.pix;totV.voucher+=x.voucher});
     receb.filter(x=>x.empresa===emp).forEach(x=>{totR.debito+=x.debito;totR.credito+=x.credito;totR.pix+=x.pix;totR.voucher+=x.voucher});
 
-    const cnv=document.createElement('canvas'); cnv.height = (empSel===emp? 240:120); sec.appendChild(cnv);
+    const cnv=document.createElement('canvas'); cnv.height=(empSel===emp?240:120); sec.appendChild(cnv);
     new Chart(cnv,{type:'pie',data:{labels:['Débito','Crédito','Pix','Voucher'],datasets:[{data:[totV.debito,totV.credito,totV.pix,totV.voucher],backgroundColor:['#0d47a1','#1b5e20','#ffb300','#c62828']}]},options:{plugins:{legend:{position:'bottom'}}}});
 
     if(empSel===emp){
@@ -183,17 +177,20 @@ function drawPizzas(vendas,receb){
   });
 }
 
-// === Orquestração ===
+// =============== Boot ===============
 async function boot(){
   setDefaultDates();
-  const [v,r] = await Promise.all([
+  const [vRaw,rRaw]=await Promise.all([
     fetch(URL_VENDAS).then(x=>x.json()),
     fetch(URL_EXTRATO).then(x=>x.json())
   ]);
-  baseVendas=v; baseReceb=r;
+  baseVendas=normalizeRows(vRaw);
+  baseReceb =normalizeRows(rRaw);
+
   vendasGrp=agruparPorDiaEmpresa(baseVendas);
   recebGrp =agruparPorDiaEmpresa(baseReceb);
-  preencherEmpresasDoAgrupado();
+
+  preencherEmpresas(); // <- garante que as empresas aparecem no select
   aplicarFiltrosEDesenhar();
 }
 
@@ -207,9 +204,9 @@ function aplicarFiltrosEDesenhar(){
   drawPizzas(vFil,rFil);
 }
 
-// Eventos
 document.getElementById('btnAplicar').addEventListener('click',aplicarFiltrosEDesenhar);
 
+// start
 boot();
 </script>
 </body>

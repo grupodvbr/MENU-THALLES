@@ -135,14 +135,6 @@
   align-items: center;
   z-index: 1000;
 }
-    <div id="popupPizza" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-background-color: rgba(0, 0, 0, 0.7); display: none; justify-content: center; align-items: center; z-index: 1001;">
-  <div style="background: white; padding: 20px; border-radius: 10px; max-width: 500px; width: 90%; position: relative;">
-    <div onclick="fecharPopupPizza()" style="position: absolute; top: 10px; right: 15px; font-size: 22px; font-weight: bold; color: #333; cursor: pointer;">&times;</div>
-    <canvas id="graficoPizza" style="max-width: 400px; margin-top: 20px;"></canvas>
-  </div>
-</div>
-
 #popupContent {
   position: relative; /* <-- ESSA LINHA NOVA */
   background: white;
@@ -153,14 +145,6 @@ background-color: rgba(0, 0, 0, 0.7); display: none; justify-content: center; al
   max-height: 90vh;
   overflow-y: auto;
 }
-    #popupPizza {
-  animation: fadeIn 0.3s ease;
-}
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
-
 #popupClose {
   position: absolute;
   top: 10px;
@@ -262,6 +246,7 @@ background-color: rgba(0, 0, 0, 0.7); display: none; justify-content: center; al
   <canvas id="graficoProdutoCanvas"></canvas>
 
   <!-- ✅ Adicione aqui dentro -->
+  <canvas id="graficoPizza" style="max-width: 400px; margin-top: 20px; display: none;"></canvas>
 
   <div id="dadosProdutoTabela"></div>
 </div>
@@ -404,11 +389,6 @@ function mostrarResumo(filt){
   if(chartPizza) chartPizza.destroy();
   document.getElementById('graficoPizza').style.display = 'none';
 }
-  function fecharPopupPizza() {
-  if(chartPizza) chartPizza.destroy();
-  document.getElementById('popupPizza').style.display = 'none';
-}
-
 
 function mostrarAnalises(filt) {
   const countByProd = {};
@@ -623,23 +603,17 @@ function exibirGraficoProdutoSelecionado(produto, empresa){
       }
     });
 
-  document.getElementById('popupPizza').style.display = 'flex';
-
+    document.getElementById('graficoPizza').style.display = 'block';
   }
 
   canvas.addEventListener('dblclick', abrirGraficoPizza);
+  canvas.addEventListener('touchstart', () => {
+    toqueLongoTimeout = setTimeout(abrirGraficoPizza, 600);
+  });
+  canvas.addEventListener('touchend', () => clearTimeout(toqueLongoTimeout));
+  canvas.addEventListener('touchmove', () => clearTimeout(toqueLongoTimeout));
 
 }
-let ultimoToque = 0;
-canvas.addEventListener('touchend', function(e) {
-  const agora = new Date().getTime();
-  if (agora - ultimoToque < 400) {
-    abrirGraficoPizza();
-    ultimoToque = 0;
-  } else {
-    ultimoToque = agora;
-  }
-});
 
 window.onload = () => {
   const hoje = new Date();

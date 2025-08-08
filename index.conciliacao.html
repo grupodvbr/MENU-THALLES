@@ -14,17 +14,16 @@
     }
     header {
       background-color: white;
-      padding: 20px 20px 10px;
-      border-bottom: 1px solid #ccc;
+      padding: 20px;
       text-align: center;
+      border-bottom: 1px solid #ccc;
     }
     header img {
       height: 60px;
-      margin-bottom: 5px;
     }
     header h1 {
-      margin: 5px 0 0;
-      font-size: 1.6em;
+      margin: 10px 0 0;
+      font-size: 1.5em;
       font-weight: bold;
     }
     .container {
@@ -35,68 +34,50 @@
       flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 20px;
-      align-items: end;
     }
-    .filters label {
-      font-weight: bold;
-    }
+    .filters select,
     .filters input[type="date"] {
       padding: 10px;
-      border-radius: 8px;
+      border-radius: 6px;
       border: 1px solid #ccc;
       width: 100%;
     }
     .filters > div {
       flex: 1 1 200px;
     }
-    .btn-whatsapp {
-      background-color: #25D366;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 8px;
-      border: none;
-      font-weight: bold;
-      cursor: pointer;
-      margin-top: 10px;
-    }
     canvas {
       background: white;
       border-radius: 10px;
-      padding: 20px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-      flex: 1;
-      min-width: 320px;
-    }
-    .charts {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      justify-content: space-between;
+      padding: 10px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
   </style>
 </head>
 <body>
 
 <header>
-  <img src="https://github.com/ClenaStore/painel-principal/blob/main/img/GRUPO%20DV%20(1).png?raw=true" alt="Logo CB Systems">
+  <img src="https://github.com/ClenaStore/painel-principal/blob/main/img/GRUPO%20DV%20(1).png?raw=true" alt="Logo">
   <h1>Conciliações - VILLA GOURMET</h1>
 </header>
 
 <div class="container">
   <div class="filters">
     <div>
-      <label for="data">Data:</label>
-      <input type="date" id="data" onchange="filtrar()">
+      <label for="filtroData">Data:</label>
+      <input type="date" id="filtroData" onchange="filtrar()">
     </div>
     <div>
-      <button class="btn-whatsapp" onclick="enviarWhatsapp()">📤 Enviar via WhatsApp</button>
+      <label for="filtroEmpresa">Empresa:</label>
+      <select id="filtroEmpresa" onchange="filtrar()">
+        <option value="">Todas</option>
+      </select>
     </div>
   </div>
 
-  <div class="charts">
-    <canvas id="graficoPercentual"></canvas>
-    <canvas id="graficoValor"></canvas>
-  </div>
+  <canvas id="graficoRecebimentos"></canvas>
+  <canvas id="graficoFalhas"></canvas>
+  <canvas id="graficoPrevisao"></canvas>
 </div>
 
 <script>
@@ -105,87 +86,147 @@ let dados = [];
 
 async function carregarDados() {
   const res = await fetch(URL_SCRIPT);
-  dados = (await res.json()).filter(d => d.empresa === "VILLA GOURMET");
-  definirDataPadrao();
-}
-
-function definirDataPadrao() {
-  const inputData = document.getElementById("data");
-  const ontem = new Date();
-  ontem.setDate(ontem.getDate() - 1);
-  const ontemISO = ontem.toISOString().split('T')[0];
-  inputData.value = ontemISO;
+  dados = await res.json();
+  popularEmpresas();
   filtrar();
 }
 
-function filtrar() {
-  const data = document.getElementById("data").value;
-  const filtrados = dados.filter(d => !data || d.data === data);
-
-  const labels = [];
-  const percentualData = [];
-  const valorData = [];
-
-  filtrados.forEach(d => {
-    labels.push(d.empresa);
-    percentualData.push(d.percentual);
-    valorData.push(d.valor);
+function popularEmpresas() {
+  const select = document.getElementById("filtroEmpresa");
+  const empresasUnicas = [...new Set(dados.map(d => d.empresa))];
+  empresasUnicas.forEach(empresa => {
+    const opt = document.createElement("option");
+    opt.value = empresa;
+    opt.textContent = empresa;
+    select.appendChild(opt);
   });
-
-  renderChart("graficoPercentual", "📈 % Conciliado", labels, percentualData, "%");
-  renderChart("graficoValor", "💰 Valor Pendente (R$)", labels, valorData, "R$");
 }
 
-function renderChart(id, title, labels, data, tipo) {
-  const ctx = document.getElementById(id).getContext("2d");
-  if (window[id]) window[id].destroy();
-  window[id] = new Chart(ctx, {
-    type: "bar",
+function filtrar() {
+  const data = document.getElementById("filtroData").value;
+  const empresa = document.getElementById("filtroEmpresa").value;
+
+  const filtrados = dados.filter(d => {
+    return (!data || d.data === data) && (!empresa || d.empresa === empresa);
+  });
+
+  const labels = filtrados.map(d => d.empresa + " (" + d.data + ")");
+  const recebidos = filtrados.map(d => [
+    d.Valornoextratodebito || 0,
+    d.Valornoextratocredito || 0,
+    d.Valornoextratopix || 0,
+    d.Valornoextratovoucher || 0
+  ]);
+  const vendas = filtrados.map(d => [
+    d.Vendasdebito || 0,
+    d.Vendascredito || 0,
+    d.Vendaspix || 0,
+    d.Vendasvoucher || 0
+  ]);
+  const previsao = filtrados.map(d => d.Previsaocredito || 0);
+  const recebidoCredito = filtrados.map(d => d.Valornoextratocredito || 0);
+
+  renderRecebimentos(labels, vendas, recebidos);
+  renderFalhas(labels, vendas, recebidos);
+  renderPrevisaoCredito(labels, previsao, recebidoCredito);
+}
+
+function renderRecebimentos(labels, vendas, recebidos) {
+  const ctx = document.getElementById("graficoRecebimentos").getContext("2d");
+  if (window.recebimentosChart) window.recebimentosChart.destroy();
+  window.recebimentosChart = new Chart(ctx, {
+    type: 'bar',
     data: {
       labels,
-      datasets: [{
-        label: title,
-        data,
-        backgroundColor: "#3e95cd"
-      }]
+      datasets: [
+        { label: "Débito Vendido", data: vendas.map(v => v[0]), backgroundColor: "#007bff" },
+        { label: "Débito Recebido", data: recebidos.map(r => r[0]), backgroundColor: "#66b3ff" },
+        { label: "Crédito Vendido", data: vendas.map(v => v[1]), backgroundColor: "#28a745" },
+        { label: "Crédito Recebido", data: recebidos.map(r => r[1]), backgroundColor: "#98e698" },
+        { label: "Pix Vendido", data: vendas.map(v => v[2]), backgroundColor: "#ffc107" },
+        { label: "Pix Recebido", data: recebidos.map(r => r[2]), backgroundColor: "#ffe680" },
+        { label: "Voucher Vendido", data: vendas.map(v => v[3]), backgroundColor: "#dc3545" },
+        { label: "Voucher Recebido", data: recebidos.map(r => r[3]), backgroundColor: "#f5a6a6" },
+      ]
     },
     options: {
       responsive: true,
       plugins: {
-        title: {
-          display: true,
-          text: title,
-          font: { size: 18 }
-        },
-        legend: { display: false }
+        title: { display: true, text: "Comparativo de Recebimentos por Modalidade" },
+        legend: { position: "bottom" }
       },
       scales: {
         y: {
-          ticks: {
-            callback: val => tipo === "%" ? val + "%" : "R$ " + val.toLocaleString("pt-BR")
-          }
+          beginAtZero: true,
+          ticks: { callback: val => "R$ " + val.toLocaleString("pt-BR") }
         }
       }
     }
   });
 }
 
-function enviarWhatsapp() {
-  const data = document.getElementById("data").value;
-  const dataBR = data.split("-").reverse().join("/");
-
-  const filtrados = dados.filter(d => !data || d.data === data);
-
-  if (!filtrados.length) return alert("Nenhum dado para enviar.");
-
-  let mensagem = `📊 *Conciliações ${dataBR}*%0A%0A`;
-  filtrados.forEach(d => {
-    mensagem += `*VILLA GOURMET*%0A• % Conciliado: ${d.percentual.toFixed(1)}%%0A• Valor pendente: R$ ${d.valor.toFixed(2)}%0A%0A`;
+function renderFalhas(labels, vendas, recebidos) {
+  const ctx = document.getElementById("graficoFalhas").getContext("2d");
+  if (window.falhasChart) window.falhasChart.destroy();
+  const falhasCredito = vendas.map((v, i) => {
+    const recebido = recebidos[i][1];
+    const vendido = v[1];
+    if (vendido == 0) return 0;
+    return ((vendido - recebido) / vendido * 100).toFixed(1);
   });
+  window.falhasChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: "% Falha no Crédito",
+        data: falhasCredito,
+        backgroundColor: "#ff6384"
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: { display: true, text: "Índice de Falhas no Crédito (%)" },
+        legend: { display: false }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+          ticks: { callback: val => val + "%" }
+        }
+      }
+    }
+  });
+}
 
-  const numero = "5577999761436"; // Altere aqui
-  const link = `https://wa.me/${numero}?text=${encodeURIComponent(mensagem)}`;
-  window.open(link, "_blank");
+function renderPrevisaoCredito(labels, previsao, recebido) {
+  const ctx = document.getElementById("graficoPrevisao").getContext("2d");
+  if (window.previsaoChart) window.previsaoChart.destroy();
+  window.previsaoChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: "Previsto Crédito", data: previsao, backgroundColor: "#6f42c1" },
+        { label: "Recebido Crédito", data: recebido, backgroundColor: "#b39ddb" }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: { display: true, text: "Previsão vs Crédito Recebido" },
+        legend: { position: "bottom" }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { callback: val => "R$ " + val.toLocaleString("pt-BR") }
+        }
+      }
+    }
+  });
 }
 
 carregarDados();

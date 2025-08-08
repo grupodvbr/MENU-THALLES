@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Conciliações - VILLA GOURMET</title>
+  <title>Conciliações - GRUPO DV</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -34,13 +34,23 @@
       flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 20px;
+      align-items: end;
+    }
+    .filters .date-range {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+    .filters .date-range input {
+      display: inline-block;
+      width: 100%;
+      margin-bottom: 5px;
     }
     .filters select,
     .filters input[type="date"] {
       padding: 10px;
       border-radius: 6px;
       border: 1px solid #ccc;
-      width: 100%;
     }
     .filters > div {
       flex: 1 1 200px;
@@ -58,17 +68,14 @@
 
 <header>
   <img src="https://github.com/ClenaStore/painel-principal/blob/main/img/GRUPO%20DV%20(1).png?raw=true" alt="Logo">
-  <h1>Conciliações - VILLA GOURMET</h1>
+  <h1>Conciliações - GRUPO DV</h1>
 </header>
 
 <div class="container">
   <div class="filters">
-    <div>
-      <label for="filtroDataInicio">De:</label>
+    <div class="date-range">
+      <label for="filtroDataInicio">Período:</label>
       <input type="date" id="filtroDataInicio" onchange="filtrar()">
-    </div>
-    <div>
-      <label for="filtroDataFim">Até:</label>
       <input type="date" id="filtroDataFim" onchange="filtrar()">
     </div>
     <div>
@@ -85,68 +92,32 @@
 </div>
 
 <script>
-const URL_EXTRATO = "https://script.google.com/macros/s/AKfycbypZ0ibLQGEbGLQNr-UdmmSn-fbde-nz4KUt6RFUjp0lZbHmGTxcHvKVZmmFxL5b5roLA/exec";
+const URL_EXTRATO = "https://script.google.com/macros/s/AKfycbyGSP5oj9xotdhbnLsZ4hY4m1_dEbd2YQ-N3o7Y-GCwd7RvCTlSzhYee8Jn6RdnKcx2ug/exec";
 const URL_VENDAS = "https://script.google.com/macros/s/AKfycbz9GQLrIB4oiX0jBQ7yaDO_IiMz3ER7lQT094sp5y2VUGgQWBaz3G1fa7s4ZbiWli_O/exec";
-let extrato = [];
-let vendas = [];
+let extrato = [], vendas = [];
 
 async function carregarDados() {
+  const hoje = new Date();
+  const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const fim = new Date(hoje);
+  fim.setDate(fim.getDate() - 1);
+
+  document.getElementById("filtroDataInicio").value = inicio.toISOString().split("T")[0];
+  document.getElementById("filtroDataFim").value = fim.toISOString().split("T")[0];
+
   const [resExtrato, resVendas] = await Promise.all([
     fetch(URL_EXTRATO),
     fetch(URL_VENDAS)
   ]);
   extrato = await resExtrato.json();
-
-  const bruto = await resVendas.json();
-  const agrupado = {};
-
-  bruto.forEach(item => {
-    const data = item.Data || item.data;
-    const empresa = item.Empresa || item.empresa;
-    const categoria = (item.Categoria || '').toUpperCase();
-    const valor = Number(item.Valor || 0);
-
-    const chave = `${empresa}|${data}`;
-    if (!agrupado[chave]) {
-      agrupado[chave] = {
-        empresa,
-        data,
-        credito: 0,
-        debito: 0,
-        pix: 0,
-        voucher: 0
-      };
-    }
-
-    if (categoria.includes("CREDITO")) agrupado[chave].credito += valor;
-    else if (categoria.includes("DEBITO")) agrupado[chave].debito += valor;
-    else if (categoria.includes("PIX")) agrupado[chave].pix += valor;
-    else if (categoria.includes("VOUCHER") || categoria.includes("POS")) agrupado[chave].voucher += valor;
-  });
-
-  vendas = Object.values(agrupado);
-
+  vendas = await resVendas.json();
   popularEmpresas();
-  definirDatasPadrao();
   filtrar();
-}
-
-function definirDatasPadrao() {
-  const inicio = document.getElementById("filtroDataInicio");
-  const fim = document.getElementById("filtroDataFim");
-  const hoje = new Date();
-  const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  const ontem = new Date(hoje);
-  ontem.setDate(hoje.getDate() - 1);
-
-  inicio.value = primeiroDia.toISOString().split('T')[0];
-  fim.value = ontem.toISOString().split('T')[0];
 }
 
 function popularEmpresas() {
   const select = document.getElementById("filtroEmpresa");
-  select.innerHTML = '<option value="">Todas</option>';
-  const empresas = [...new Set([...extrato.map(e => e.empresa), ...vendas.map(v => v.empresa)])];
+  const empresas = [...new Set([...extrato.map(e => e.empresa), ...vendas.map(v => v.Empresa)])];
   empresas.forEach(empresa => {
     const opt = document.createElement("option");
     opt.value = empresa;
@@ -156,42 +127,135 @@ function popularEmpresas() {
 }
 
 function filtrar() {
-  const dataInicio = document.getElementById("filtroDataInicio").value;
+  const dataIni = document.getElementById("filtroDataInicio").value;
   const dataFim = document.getElementById("filtroDataFim").value;
   const empresa = document.getElementById("filtroEmpresa").value;
 
   const filtro = d => {
-    return (!empresa || d.empresa === empresa) &&
-      (!dataInicio || d.data >= dataInicio) &&
-      (!dataFim || d.data <= dataFim);
-  };
+    const data = d.data || d.Data;
+    return (!dataIni || data >= dataIni) && (!dataFim || data <= dataFim) && (!empresa || d.empresa === empresa || d.Empresa === empresa);
+  }
 
   const extratoFiltrado = extrato.filter(filtro);
   const vendasFiltrado = vendas.filter(filtro);
 
-  const dados = [];
+  const dados = extratoFiltrado.map(d => {
+    const v = vendasFiltrado.filter(x => x.Data === d.data && (x.Empresa === d.empresa));
+    const soma = tipo => v.filter(i => i.Categoria.includes(tipo)).reduce((acc, i) => acc + (parseFloat(i.Valor) || 0), 0);
 
-  extratoFiltrado.forEach(d => {
-    const v = vendasFiltrado.find(x => x.data === d.data && x.empresa === d.empresa);
-    if (!v) return;
-    dados.push({
-      label: d.empresa + " (" + d.data + ")",
-      debito: v.debito || 0,
+    return {
+      label: `${d.empresa} (${d.data})`,
+      debito: soma("DEBITO"),
       debitoRecebido: d.Valornoextratodebito || 0,
-      credito: v.credito || 0,
+      credito: soma("CREDITO"),
       creditoRecebido: d.Valornoextratocredito || 0,
-      pix: v.pix || 0,
+      pix: soma("PIX"),
       pixRecebido: d.Valornoextratopix || 0,
-      voucher: v.voucher || 0,
+      voucher: soma("VOUCHER"),
       voucherRecebido: d.Valornoextratovoucher || 0,
       previsao: d.Previsaocredito || 0
-    });
+    }
   });
 
   renderRecebimentos(dados);
   renderFalhas(dados);
   renderPrevisaoCredito(dados);
 }
+
+function renderRecebimentos(dados) {
+  const ctx = document.getElementById("graficoRecebimentos").getContext("2d");
+  if (window.recebimentosChart) window.recebimentosChart.destroy();
+  window.recebimentosChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: dados.map(d => d.label),
+      datasets: [
+        { label: "Débito Vendido", data: dados.map(d => d.debito), backgroundColor: "#007bff" },
+        { label: "Débito Recebido", data: dados.map(d => d.debitoRecebido), backgroundColor: "#66b3ff" },
+        { label: "Crédito Vendido", data: dados.map(d => d.credito), backgroundColor: "#28a745" },
+        { label: "Crédito Recebido", data: dados.map(d => d.creditoRecebido), backgroundColor: "#98e698" },
+        { label: "Pix Vendido", data: dados.map(d => d.pix), backgroundColor: "#ffc107" },
+        { label: "Pix Recebido", data: dados.map(d => d.pixRecebido), backgroundColor: "#ffe680" },
+        { label: "Voucher Vendido", data: dados.map(d => d.voucher), backgroundColor: "#dc3545" },
+        { label: "Voucher Recebido", data: dados.map(d => d.voucherRecebido), backgroundColor: "#f5a6a6" }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: { display: true, text: "Comparativo de Recebimentos por Modalidade" },
+        legend: { position: "bottom" }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { callback: val => "R$ " + val.toLocaleString("pt-BR") }
+        }
+      }
+    }
+  });
+}
+
+function renderFalhas(dados) {
+  const ctx = document.getElementById("graficoFalhas").getContext("2d");
+  if (window.falhasChart) window.falhasChart.destroy();
+  const falhasCredito = dados.map(d => d.credito ? (((d.credito - d.creditoRecebido) / d.credito) * 100).toFixed(1) : 0);
+  window.falhasChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: dados.map(d => d.label),
+      datasets: [{
+        label: "% Falha no Crédito",
+        data: falhasCredito,
+        backgroundColor: "#ff6384"
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: { display: true, text: "Índice de Falhas no Crédito (%)" },
+        legend: { display: false }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+          ticks: { callback: val => val + "%" }
+        }
+      }
+    }
+  });
+}
+
+function renderPrevisaoCredito(dados) {
+  const ctx = document.getElementById("graficoPrevisao").getContext("2d");
+  if (window.previsaoChart) window.previsaoChart.destroy();
+  window.previsaoChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: dados.map(d => d.label),
+      datasets: [
+        { label: "Previsto Crédito", data: dados.map(d => d.previsao), backgroundColor: "#6f42c1" },
+        { label: "Recebido Crédito", data: dados.map(d => d.creditoRecebido), backgroundColor: "#b39ddb" }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: { display: true, text: "Previsão vs Crédito Recebido" },
+        legend: { position: "bottom" }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { callback: val => "R$ " + val.toLocaleString("pt-BR") }
+        }
+      }
+    }
+  });
+}
+
+carregarDados();
 </script>
 
 </body>

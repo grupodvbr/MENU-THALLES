@@ -127,7 +127,7 @@ async function carregarDados() {
   ]);
 
   dadosVendas = agruparVendas(vendas);
-  dadosRecebidos = recebidos;
+  dadosRecebidos = agruparVendas(recebidos); // ajustar estrutura para mesmo agrupamento
 
   preencherEmpresas([...new Set(vendas.map(v => v.Empresa))]);
   filtrar();
@@ -211,7 +211,7 @@ function gerarGraficos(vendas, recebidos) {
     const r = recebidos.find(r => r.data === dia) || {};
     const valorV = v.credito || 0;
     const valorR = r.credito || 0;
-    return valorV > 0 ? Math.round(((valorV - valorR) / valorV) * 100) : 0;
+    return valorV > 0 ? Math.round((valorR / valorV) * 100) : 0;
   });
 
   if (chartFalhas) chartFalhas.destroy();
@@ -219,7 +219,7 @@ function gerarGraficos(vendas, recebidos) {
     type: "line",
     data: {
       labels: dias,
-      datasets: [{ label: "Índice de Falhas no Crédito (%)", data: falhas, borderColor: "#FF3333", fill: false }]
+      datasets: [{ label: "% de Crédito Recebido vs Vendido", data: falhas, borderColor: "#FF3333", fill: false }]
     },
     options: { responsive: true, plugins: { legend: { position: "top" } }, scales: { y: { min: 0, max: 100 } } }
   });

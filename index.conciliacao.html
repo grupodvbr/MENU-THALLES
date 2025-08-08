@@ -60,28 +60,23 @@
 
 <script>
 // === Endpoints ===
-// VENDAS vem em linhas: { Empresa, Data, Categoria, Valor }
+// VENDAS: [{ Empresa|empresa, Data|data, Categoria|categoria, Valor|valor }]
 const URL_VENDAS  = "https://script.google.com/macros/s/AKfycbz9GQLrIB4oiX0jBQ7yaDO_IiMz3ER7lQT094sp5y2VUGgQWBaz3G1fa7s4ZbiWli_O/exec";
-// EXTRATO idem (para recebido): { Empresa, Data, Categoria, Valor }
+// EXTRATO/RECEBIDO: mesmo formato
 const URL_EXTRATO = "https://script.google.com/macros/s/AKfycbyGSP5oj9xotdhbnLsZ4hY4m1_dEbd2YQ-N3o7Y-GCwd7RvCTlSzhYee8Jn6RdnKcx2ug/exec";
 
 // === Estado ===
-let baseVendas = [];     // linhas cruas
-let baseReceb  = [];     // linhas cruas
-let vendasGrp  = [];     // agrupado por (empresa,data) -> modalidades
-let recebGrp   = [];     // idem para recebido
-
-// Charts refs
+let baseVendas = [], baseReceb = [];
+let vendasGrp = [],  recebGrp = [];
 let chLinha=null, chModal=null, chPct=null, chPrev=null;
 
-// === Helpers ===
+// ===== Helpers =====
 function showStatus(msg,type='info'){
   const el=document.getElementById('statusMsg');
   el.style.display='block';
   el.style.color= type==='error' ? '#c62828' : (type==='warn' ? '#ff8f00' : '#444');
   el.textContent=msg;
 }
-
 function setDefaultDates(){
   const hoje=new Date();
   const ontem=new Date(hoje); ontem.setDate(ontem.getDate()-1);
@@ -89,33 +84,43 @@ function setDefaultDates(){
   document.getElementById('filtroDataInicio').value=inicio.toISOString().split('T')[0];
   document.getElementById('filtroDataFim').value=ontem.toISOString().split('T')[0];
 }
-
-// Normaliza chaves (aceita Empresa/empresa etc.)
+// tenta ler JSON mesmo com header text/plain e sem cache
+async function loadJSON(url){
+  try{
+    const res = await fetch(url + (url.includes('?')?'&':'?') + 'nocache=' + Date.now(), { cache:'no-store' });
+    const ct  = res.headers.get('content-type') || '';
+    const txt = await res.text();
+    if (ct.includes('application/json')) return JSON.parse(txt);
+    return JSON.parse(txt); // tenta parsear mesmo sem header
+  }catch(err){
+    console.error('Falha ao buscar', url, err);
+    return [];
+  }
+}
+function stripAccents(s){ return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 function normalizeRows(rows){
   return (rows||[]).map(r=>({
-    Empresa:  r.Empresa  ?? r.empresa ?? r.EMPRESA ?? '',
-    Data:     r.Data     ?? r.data    ?? r.DATA    ?? '',
-    Categoria:r.Categoria?? r.categoria?? r.CATEGORIA?? '',
-    Valor:    Number(r.Valor ?? r.valor ?? r.VALOR ?? 0)
+    Empresa:   r.Empresa   ?? r.empresa   ?? r.EMPRESA   ?? '',
+    Data:      r.Data      ?? r.data      ?? r.DATA      ?? '',
+    Categoria: r.Categoria ?? r.categoria ?? r.CATEGORIA ?? '',
+    Valor:     Number(r.Valor ?? r.valor ?? r.VALOR ?? 0)
   })).filter(r=>r.Empresa && r.Data);
 }
-
 function agruparPorDiaEmpresa(lista){
   const mapa={};
   for(const {Empresa,Data,Categoria,Valor} of lista){
     const k=Empresa+'|'+Data;
     if(!mapa[k]) mapa[k]={empresa:Empresa,data:Data,debito:0,credito:0,pix:0,voucher:0,previsto:0};
-    const cat=(Categoria||'').toUpperCase();
+    const catU = stripAccents((Categoria||'').toUpperCase());
     const v=Number(Valor)||0;
-    if(cat.includes('DÉBITO')) mapa[k].debito += v;
-    else if(cat.includes('CRÉDITO')) mapa[k].credito += v;
-    else if(cat.includes('PIX')) mapa[k].pix += v;
-    else if(cat.includes('VOUCHER')) mapa[k].voucher += v;
-    if(cat.includes('PREV')) mapa[k].previsto += v; // opcional: previsão
+    if(catU.includes('DEBITO'))   mapa[k].debito  += v;
+    else if(catU.includes('CREDITO')) mapa[k].credito += v;
+    else if(catU.includes('PIX'))  mapa[k].pix     += v;
+    else if(catU.includes('VOUCHER')) mapa[k].voucher += v;
+    if(catU.includes('PREV')) mapa[k].previsto += v; // se existir
   }
   return Object.values(mapa);
 }
-
 function filtrarColecao(col){
   const ini=document.getElementById('filtroDataInicio').value;
   const fim=document.getElementById('filtroDataFim').value;
@@ -123,12 +128,10 @@ function filtrarColecao(col){
   return col.filter(d=>(!emp||d.empresa===emp) && d.data>=ini && d.data<=fim);
 }
 
-// =============== Charts ===============
+// ===== Gráficos =====
 function drawLinhaGeral(vendas){
-  const somaDia={};
-  vendas.forEach(d=>{somaDia[d.data]=(somaDia[d.data]||0)+d.debito+d.credito+d.pix+d.voucher});
-  const dias=Object.keys(somaDia).sort();
-  const valores=dias.map(d=>somaDia[d]);
+  const somaDia={}; vendas.forEach(d=>{somaDia[d.data]=(somaDia[d.data]||0)+d.debito+d.credito+d.pix+d.voucher});
+  const dias=Object.keys(somaDia).sort(); const valores=dias.map(d=>somaDia[d]);
   if(chLinha) chLinha.destroy();
   chLinha=new Chart(document.getElementById('graficoLinhaVendas'),{
     type:'line',
@@ -136,36 +139,30 @@ function drawLinhaGeral(vendas){
     options:{responsive:true,plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:ctx=>` Valor Vendido:  R$ ${Number(ctx.parsed.y||0).toLocaleString('pt-BR')}`}}},scales:{y:{ticks:{callback:v=>`R$ ${Number(v).toLocaleString('pt-BR')}`}},x:{ticks:{maxRotation:0,autoSkip:true}}}}
   );
 }
-
 function drawModalidades(vendas,receb){
   const dias=[...new Set([...vendas.map(v=>v.data),...receb.map(r=>r.data)])].sort();
   const mods=['debito','credito','pix','voucher'];
   const cores={debito:['#0d47a1','#4fc3f7'],credito:['#1b5e20','#81c784'],pix:['#ffb300','#ffe082'],voucher:['#c62828','#ef9a9a']};
-  const ds=[];
-  mods.forEach(m=>{ds.push({label:`${m[0].toUpperCase()+m.slice(1)} Vendido`,data:[],borderColor:cores[m][0],fill:false});ds.push({label:`${m[0].toUpperCase()+m.slice(1)} Recebido`,data:[],borderColor:cores[m][1],fill:false});});
+  const ds=[]; mods.forEach(m=>{ds.push({label:`${m[0].toUpperCase()+m.slice(1)} Vendido`,data:[],borderColor:cores[m][0],fill:false});ds.push({label:`${m[0].toUpperCase()+m.slice(1)} Recebido`,data:[],borderColor:cores[m][1],fill:false});});
   dias.forEach(d=>{const v=vendas.find(x=>x.data===d)||{}; const r=receb.find(x=>x.data===d)||{}; mods.forEach((m,i)=>{ds[i*2].data.push(v[m]||0); ds[i*2+1].data.push(r[m]||0)});});
   if(chModal) chModal.destroy();
   chModal=new Chart(document.getElementById('graficoModalidades'),{type:'line',data:{labels:dias,datasets:ds},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
 }
-
 function drawPctCredito(vendas,receb){
   const dias=[...new Set([...vendas.map(v=>v.data),...receb.map(r=>r.data)])].sort();
   const pct=dias.map(d=>{const v=vendas.find(x=>x.data===d)?.credito||0; const r=receb.find(x=>x.data===d)?.credito||0; return v>0?Math.round((r/v)*100):0;});
   if(chPct) chPct.destroy();
   chPct=new Chart(document.getElementById('graficoPctCredito'),{type:'line',data:{labels:dias,datasets:[{label:'% de Crédito Recebido',data:pct,borderColor:'#ff3b30',fill:false}]},options:{responsive:true,scales:{y:{min:0,max:100,ticks:{callback:v=>v+'%'}}},plugins:{legend:{position:'top'}}}});
 }
-
 function drawPrevisto(vendas,receb){
   const dias=[...new Set([...vendas.map(v=>v.data),...receb.map(r=>r.data)])].sort();
-  const prev=dias.map(d=>vendas.find(x=>x.data===d)?.credito||0); // crédito vendido como previsto
+  const prev=dias.map(d=>vendas.find(x=>x.data===d)?.credito||0); // usando crédito vendido como previsto
   const rec =dias.map(d=>receb.find(x=>x.data===d)?.credito||0);
   if(chPrev) chPrev.destroy();
   chPrev=new Chart(document.getElementById('graficoPrevisto'),{type:'bar',data:{labels:dias,datasets:[{label:'Previsto Crédito',data:prev,backgroundColor:'#66CCFF'},{label:'Crédito Recebido',data:rec,backgroundColor:'#99FFCC'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{y:{ticks:{callback:v=>`R$ ${Number(v).toLocaleString('pt-BR')}`}}}});
 }
-
 function drawPizzas(vendas,receb){
-  const wrap=document.getElementById('graficosPizza');
-  wrap.innerHTML='';
+  const wrap=document.getElementById('graficosPizza'); wrap.innerHTML='';
   const empSel=document.getElementById('filtroEmpresa').value||null;
   const empresas=[...new Set(vendas.map(v=>v.empresa))].sort();
   empresas.forEach(emp=>{
@@ -187,42 +184,37 @@ function drawPizzas(vendas,receb){
       <div class="muted"><strong>À receber</strong> — Crédito: R$ ${(totV.credito-totR.credito).toLocaleString('pt-BR')} • Voucher: R$ ${(totV.voucher-totR.voucher).toLocaleString('pt-BR')}</div>`;
       sec.appendChild(d);
     }
-
     wrap.appendChild(sec);
   });
 }
 
-// =============== Boot ===============
+// ===== Boot =====
 async function boot(){
   try{
-    // garante datas padrão sempre que abrir a página
     setDefaultDates();
     showStatus('Carregando dados...', 'info');
 
-    const [vRaw,rRaw]=await Promise.all([
-      fetch(URL_VENDAS).then(x=>x.json()).catch(()=>[]),
-      fetch(URL_EXTRATO).then(x=>x.json()).catch(()=>[])
-    ]);
+    const [vRaw, rRaw] = await Promise.all([ loadJSON(URL_VENDAS), loadJSON(URL_EXTRATO) ]);
 
-    baseVendas=normalizeRows(vRaw||[]);
-    baseReceb =normalizeRows(rRaw||[]);
+    baseVendas = normalizeRows(vRaw||[]);
+    baseReceb  = normalizeRows(rRaw||[]);
+
+    console.log('Vendas:', baseVendas.length, baseVendas.slice(0,3));
+    console.log('Recebidos:', baseReceb.length, baseReceb.slice(0,3));
 
     if(baseVendas.length===0 && baseReceb.length===0){
       showStatus('Nenhum dado retornado dos scripts. Verifique URLs/permissões.', 'warn');
     } else {
-      showStatus('Dados carregados.', 'info');
+      showStatus(`Dados carregados. Vendas: ${baseVendas.length} • Recebidos: ${baseReceb.length}`, 'info');
     }
 
     vendasGrp=agruparPorDiaEmpresa(baseVendas);
     recebGrp =agruparPorDiaEmpresa(baseReceb);
 
-    // Popular empresas com o que existir
-    const nomes=new Set([
-      ...baseVendas.map(x=>x.Empresa),
-      ...baseReceb.map(x=>x.Empresa)
-    ].filter(Boolean));
+    // Empresas no select (de ambas as fontes)
+    const nomes=new Set([...baseVendas.map(x=>x.Empresa), ...baseReceb.map(x=>x.Empresa)].filter(Boolean));
     const sel=document.getElementById('filtroEmpresa');
-    sel.innerHTML='<option value="">Todas</option>';
+    sel.innerHTML='<option value=\"\">Todas</option>';
     [...nomes].sort().forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o)});
 
     aplicarFiltrosEDesenhar();
@@ -231,7 +223,6 @@ async function boot(){
     showStatus('Erro ao carregar/desenhar: '+e.message, 'error');
   }
 }
-
 function aplicarFiltrosEDesenhar(){
   const vFil=filtrarColecao(vendasGrp);
   const rFil=filtrarColecao(recebGrp);
@@ -241,13 +232,7 @@ function aplicarFiltrosEDesenhar(){
   drawPrevisto(vFil,rFil);
   drawPizzas(vFil,rFil);
 }
-
-// Eventos
-window.addEventListener('DOMContentLoaded', ()=>{
-  setDefaultDates();
-  boot();
-});
-
+window.addEventListener('DOMContentLoaded', ()=>{ setDefaultDates(); boot(); });
 document.getElementById('btnAplicar').addEventListener('click',aplicarFiltrosEDesenhar);
 </script>
 </body>

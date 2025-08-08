@@ -148,7 +148,8 @@ async function carregarDados() {
   dadosVendas = agruparPorDiaEmpresa(vendas);
   dadosRecebidos = agruparPorDiaEmpresa(recebidos);
 
-  preencherEmpresas([...new Set(vendas.map(v => v.Empresa))]);
+  const empresasUnicas = [...new Set(dadosVendas.map(v => v.empresa).filter(Boolean))];
+  preencherEmpresas(empresasUnicas);
   filtrar();
 }
 

@@ -240,12 +240,16 @@
   </div>
 
   <div id="popupOverlay">
-  <div id="popupContent">
-    <div id="popupClose" onclick="fecharPopup()">&times;</div>
-    <h2 id="popupTitle"></h2>
-    <canvas id="graficoProdutoCanvas"></canvas>
-    <div id="dadosProdutoTabela"></div>
-  </div>
+ <div id="popupContent">
+  <div id="popupClose" onclick="fecharPopup()">&times;</div>
+  <h2 id="popupTitle"></h2>
+  <canvas id="graficoProdutoCanvas"></canvas>
+
+  <!-- ✅ Adicione aqui dentro -->
+  <canvas id="graficoPizza" style="max-width: 400px; margin-top: 20px; display: none;"></canvas>
+
+  <div id="dadosProdutoTabela"></div>
+</div>
 </div>
 
   <canvas id="graficoVendas"></canvas>
@@ -269,6 +273,9 @@ const URL_SCRIPT = 'https://script.google.com/macros/s/AKfycbz8NEPUpDI0_JZKeqQLr
 let dados = [];
 let chartVendas = null;
 let chartProduto = null;
+  let chartPizza = null;
+let toqueLongoTimeout = null;
+
 
 function formatMoeda(v) { return v.toLocaleString('pt-BR',{ style:'currency',currency:'BRL'}); }
 function formatDataBr(iso){ 
@@ -379,7 +386,10 @@ function mostrarResumo(filt){
   function fecharPopup() {
   document.getElementById('popupOverlay').style.display = 'none';
   if(chartProduto) chartProduto.destroy();
+  if(chartPizza) chartPizza.destroy();
+  document.getElementById('graficoPizza').style.display = 'none';
 }
+
 function mostrarAnalises(filt) {
   const countByProd = {};
   filt.forEach(d => {
@@ -558,6 +568,51 @@ function exibirGraficoProdutoSelecionado(produto, empresa){
   document.getElementById('dadosProdutoTabela').innerHTML = tabela;
 
   document.getElementById('popupOverlay').style.display = 'flex';
+    const canvas = document.getElementById('graficoProdutoCanvas');
+
+  function abrirGraficoPizza() {
+    const di = document.getElementById('dataInicio').value;
+    const df = document.getElementById('dataFim').value;
+
+    const totalPeriodo = dados
+      .filter(d => d.empresa === empresa && (!di || d.data >= di) && (!df || d.data <= df))
+      .reduce((sum, d) => sum + d.faturamento, 0);
+
+    const totalProduto = filtro.reduce((sum, d) => sum + d.faturamento, 0);
+    const porcentagem = (totalProduto / totalPeriodo) * 100;
+
+    const ctxPizza = document.getElementById('graficoPizza').getContext('2d');
+    if (chartPizza) chartPizza.destroy();
+
+    chartPizza = new Chart(ctxPizza, {
+      type: 'pie',
+      data: {
+        labels: ['💡 Esse Produto', 'Outros Produtos'],
+        datasets: [{
+          data: [totalProduto, totalPeriodo - totalProduto],
+          backgroundColor: ['#27ae60', '#bdc3c7']
+        }]
+      },
+      options: {
+        plugins: {
+          title: {
+            display: true,
+            text: `Participação no Faturamento: ${porcentagem.toFixed(1)}%`
+          }
+        }
+      }
+    });
+
+    document.getElementById('graficoPizza').style.display = 'block';
+  }
+
+  canvas.addEventListener('dblclick', abrirGraficoPizza);
+  canvas.addEventListener('touchstart', () => {
+    toqueLongoTimeout = setTimeout(abrirGraficoPizza, 600);
+  });
+  canvas.addEventListener('touchend', () => clearTimeout(toqueLongoTimeout));
+  canvas.addEventListener('touchmove', () => clearTimeout(toqueLongoTimeout));
+
 }
 
 window.onload = () => {

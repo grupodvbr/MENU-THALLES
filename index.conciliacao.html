@@ -23,37 +23,32 @@
     }
     header h1 {
       margin: 10px 0 0;
-      font-size: 1.5em;
+      font-size: 1.4em;
       font-weight: bold;
     }
     .container {
-      padding: 20px;
+      padding: 15px;
     }
     .filters {
       display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 20px;
-      align-items: end;
-    }
-    .filters .date-range {
-      display: flex;
       flex-direction: column;
-      width: 100%;
+      gap: 15px;
+      margin-bottom: 20px;
     }
-    .filters .date-range input {
-      display: inline-block;
-      width: 100%;
+    .filters label {
+      font-weight: bold;
       margin-bottom: 5px;
     }
-    .filters select,
-    .filters input[type="date"] {
-      padding: 10px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
+    .filters .date-range,
+    .filters select {
+      width: 100%;
     }
-    .filters > div {
-      flex: 1 1 200px;
+    .filters input[type="date"],
+    .filters select {
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 1em;
     }
     canvas {
       background: white;
@@ -61,6 +56,19 @@
       padding: 10px;
       margin-bottom: 30px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    @media (min-width: 768px) {
+      .filters {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: end;
+      }
+      .filters > div {
+        flex: 1 1 200px;
+      }
+      .filters .date-range {
+        flex-direction: column;
+      }
     }
   </style>
 </head>

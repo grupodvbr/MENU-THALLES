@@ -295,7 +295,7 @@ function aplicarFiltros(){
   const df = document.getElementById('dataFim').value;
 
   const filt = dados.filter(d=>{
-   if(d.empresa !== 'VILLA GOURMET') return false;
+   if((d.empresa || '').trim().toUpperCase() !== 'VILLA GOURMET') return false;
     if(busca && !d.produto.toLowerCase().includes(busca)) return false;
     if(di && d.data<di) return false;
     if(df && d.data>df) return false;

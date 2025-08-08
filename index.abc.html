@@ -222,6 +222,13 @@
       📅 Data Fim:
       <input type="date" id="dataFim" />
     </label>
+    <label style="display: none">
+  🏢 Empresa:
+  <select id="filtroEmpresa" disabled>
+    <option selected>VILLA GOURMET</option>
+  </select>
+</label>
+
     <label>
       🔍 Busca:
       <input type="text" id="filtroBusca" placeholder="Buscar produto..." />
@@ -259,7 +266,6 @@
   <div id="listaVendas"></div>
 
 <script>
-const EMPRESA_FIXA = 'VILLA GOURMET';
 const URL_SCRIPT = 'https://script.google.com/macros/s/AKfycbz8NEPUpDI0_JZKeqQLrV4JwinN1RVGDs7-a0Rc3lWidxJa4GRin4csMkceAs5XjVOpOg/exec';
 let dados = [];
 let chartVendas = null;
@@ -276,19 +282,20 @@ function formatDataBr(iso){
 async function carregarDados(){
   const res = await fetch(URL_SCRIPT);
   dados = await res.json();
-  console.log(dados); // Ver se os dados chegaram corretamente
   preencherFiltros();
   aplicarFiltros();
 }
 
+
+
 function aplicarFiltros(){
-  const eF = EMPRESA_FIXA;
+  const eF = document.getElementById('filtroEmpresa').value;
   const busca = document.getElementById('filtroBusca').value.toLowerCase();
   const di = document.getElementById('dataInicio').value;
   const df = document.getElementById('dataFim').value;
 
   const filt = dados.filter(d=>{
-    if(eF && d.empresa!==eF) return false;
+   if(d.empresa !== 'VILLA GOURMET') return false;
     if(busca && !d.produto.toLowerCase().includes(busca)) return false;
     if(di && d.data<di) return false;
     if(df && d.data>df) return false;
@@ -532,6 +539,7 @@ window.onload = () => {
   document.getElementById('dataFim').value = ontem.toISOString().split('T')[0];
 
   carregarDados();
+  document.getElementById('filtroEmpresa').addEventListener('change', aplicarFiltros);
   document.getElementById('dataInicio').addEventListener('change', aplicarFiltros);
   document.getElementById('dataFim').addEventListener('change', aplicarFiltros);
   document.getElementById('filtroBusca').addEventListener('input', aplicarFiltros);

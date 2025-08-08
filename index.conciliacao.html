@@ -92,166 +92,142 @@
 </div>
 
 <script>
-const URL_EXTRATO = "https://script.google.com/macros/s/AKfycbyGSP5oj9xotdhbnLsZ4hY4m1_dEbd2YQ-N3o7Y-GCwd7RvCTlSzhYee8Jn6RdnKcx2ug/exec";
 const URL_VENDAS = "https://script.google.com/macros/s/AKfycbz9GQLrIB4oiX0jBQ7yaDO_IiMz3ER7lQT094sp5y2VUGgQWBaz3G1fa7s4ZbiWli_O/exec";
-let extrato = [], vendas = [];
+const URL_EXTRATO = "https://script.google.com/macros/s/AKfycbz9GQLrIB4oiX0jBQ7yaDO_IiMz3ER7lQT094sp5y2VUGgQWBaz3G1fa7s4ZbiWli_O/exec";
+
+let dadosVendas = [];
+let dadosRecebidos = [];
 
 async function carregarDados() {
-  const hoje = new Date();
-  const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  const fim = new Date(hoje);
-  fim.setDate(fim.getDate() - 1);
-
-  document.getElementById("filtroDataInicio").value = inicio.toISOString().split("T")[0];
-  document.getElementById("filtroDataFim").value = fim.toISOString().split("T")[0];
-
-  const [resExtrato, resVendas] = await Promise.all([
-    fetch(URL_EXTRATO),
-    fetch(URL_VENDAS)
+  const [vendas, recebidos] = await Promise.all([
+    fetch(URL_VENDAS).then(res => res.json()),
+    fetch(URL_EXTRATO).then(res => res.json())
   ]);
-  extrato = await resExtrato.json();
-  vendas = await resVendas.json();
-  popularEmpresas();
+
+  dadosVendas = agruparVendas(vendas);
+  dadosRecebidos = recebidos;
+
+  preencherEmpresas([...new Set(vendas.map(v => v.Empresa))]);
   filtrar();
 }
 
-function popularEmpresas() {
+function agruparVendas(dados) {
+  const agrupado = {};
+
+  dados.forEach(({ Empresa, Data, Categoria, Valor }) => {
+    const chave = Empresa + '_' + Data;
+    if (!agrupado[chave]) {
+      agrupado[chave] = { empresa: Empresa, data: Data, debito: 0, credito: 0, pix: 0, voucher: 0 };
+    }
+
+    const cat = Categoria.toUpperCase();
+    if (cat.includes("DÉBITO")) agrupado[chave].debito += Valor;
+    else if (cat.includes("CRÉDITO")) agrupado[chave].credito += Valor;
+    else if (cat.includes("PIX")) agrupado[chave].pix += Valor;
+    else if (cat.includes("VOUCHER")) agrupado[chave].voucher += Valor;
+  });
+
+  return Object.values(agrupado);
+}
+
+function preencherEmpresas(empresas) {
   const select = document.getElementById("filtroEmpresa");
-  const empresas = [...new Set([...extrato.map(e => e.empresa), ...vendas.map(v => v.Empresa)])];
   empresas.forEach(empresa => {
-    const opt = document.createElement("option");
-    opt.value = empresa;
-    opt.textContent = empresa;
-    select.appendChild(opt);
+    const option = document.createElement("option");
+    option.value = empresa;
+    option.textContent = empresa;
+    select.appendChild(option);
   });
 }
 
 function filtrar() {
-  const dataIni = document.getElementById("filtroDataInicio").value;
-  const dataFim = document.getElementById("filtroDataFim").value;
+  const inicio = document.getElementById("filtroDataInicio").value;
+  const fim = document.getElementById("filtroDataFim").value;
   const empresa = document.getElementById("filtroEmpresa").value;
 
-  const filtro = d => {
-    const data = d.data || d.Data;
-    return (!dataIni || data >= dataIni) && (!dataFim || data <= dataFim) && (!empresa || d.empresa === empresa || d.Empresa === empresa);
-  }
-
-  const extratoFiltrado = extrato.filter(filtro);
-  const vendasFiltrado = vendas.filter(filtro);
-
-  const dados = extratoFiltrado.map(d => {
-    const v = vendasFiltrado.filter(x => x.Data === d.data && (x.Empresa === d.empresa));
-    const soma = tipo => v.filter(i => i.Categoria.includes(tipo)).reduce((acc, i) => acc + (parseFloat(i.Valor) || 0), 0);
-
-    return {
-      label: `${d.empresa} (${d.data})`,
-      debito: soma("DEBITO"),
-      debitoRecebido: d.Valornoextratodebito || 0,
-      credito: soma("CREDITO"),
-      creditoRecebido: d.Valornoextratocredito || 0,
-      pix: soma("PIX"),
-      pixRecebido: d.Valornoextratopix || 0,
-      voucher: soma("VOUCHER"),
-      voucherRecebido: d.Valornoextratovoucher || 0,
-      previsao: d.Previsaocredito || 0
-    }
+  const vendas = dadosVendas.filter(item => {
+    return (!empresa || item.empresa === empresa) &&
+      (!inicio || item.data >= inicio) &&
+      (!fim || item.data <= fim);
   });
 
-  renderRecebimentos(dados);
-  renderFalhas(dados);
-  renderPrevisaoCredito(dados);
+  const recebidos = dadosRecebidos.filter(item => {
+    return (!empresa || item.empresa === empresa) &&
+      (!inicio || item.data >= inicio) &&
+      (!fim || item.data <= fim);
+  });
+
+  gerarGraficos(vendas, recebidos);
 }
 
-function renderRecebimentos(dados) {
-  const ctx = document.getElementById("graficoRecebimentos").getContext("2d");
-  if (window.recebimentosChart) window.recebimentosChart.destroy();
-  window.recebimentosChart = new Chart(ctx, {
-    type: 'bar',
+function gerarGraficos(vendas, recebidos) {
+  const dias = [...new Set([...vendas, ...recebidos].map(i => i.data))].sort();
+  const modalidades = ["debito", "credito", "pix", "voucher"];
+  const cores = {
+    debito: ["#0000FF", "#3399FF"],
+    credito: ["#00CC00", "#66FF66"],
+    pix: ["#FFD700", "#FFEE99"],
+    voucher: ["#FF3333", "#FF9999"]
+  };
+
+  const datasets = [];
+  modalidades.forEach(mod => {
+    datasets.push({ label: `${mod.charAt(0).toUpperCase() + mod.slice(1)} Vendido`, data: [], backgroundColor: cores[mod][0] });
+    datasets.push({ label: `${mod.charAt(0).toUpperCase() + mod.slice(1)} Recebido`, data: [], backgroundColor: cores[mod][1] });
+  });
+
+  dias.forEach(dia => {
+    const vend = vendas.find(v => v.data === dia) || {};
+    const rec = recebidos.find(r => r.data === dia) || {};
+    modalidades.forEach((mod, i) => {
+      datasets[i * 2].data.push(vend[mod] || 0);
+      datasets[i * 2 + 1].data.push(rec[mod] || 0);
+    });
+  });
+
+  new Chart(document.getElementById("graficoRecebimentos"), {
+    type: "bar",
+    data: { labels: dias, datasets },
+    options: { responsive: true, plugins: { legend: { position: "bottom" } } }
+  });
+
+  const falhas = dias.map(dia => {
+    const v = vendas.find(v => v.data === dia) || {};
+    const r = recebidos.find(r => r.data === dia) || {};
+    const valorV = v.credito || 0;
+    const valorR = r.credito || 0;
+    return valorV > 0 ? Math.round(((valorV - valorR) / valorV) * 100) : 0;
+  });
+
+  new Chart(document.getElementById("graficoFalhas"), {
+    type: "line",
     data: {
-      labels: dados.map(d => d.label),
+      labels: dias,
+      datasets: [{ label: "Índice de Falhas no Crédito (%)", data: falhas, borderColor: "#FF3333", fill: false }]
+    },
+    options: { responsive: true, plugins: { legend: { position: "top" } }, scales: { y: { min: 0, max: 100 } } }
+  });
+
+  const previsao = dias.map(dia => {
+    const v = vendas.find(v => v.data === dia) || {};
+    return v.credito || 0;
+  });
+
+  const receb = dias.map(dia => {
+    const r = recebidos.find(r => r.data === dia) || {};
+    return r.credito || 0;
+  });
+
+  new Chart(document.getElementById("graficoPrevisao"), {
+    type: "bar",
+    data: {
+      labels: dias,
       datasets: [
-        { label: "Débito Vendido", data: dados.map(d => d.debito), backgroundColor: "#007bff" },
-        { label: "Débito Recebido", data: dados.map(d => d.debitoRecebido), backgroundColor: "#66b3ff" },
-        { label: "Crédito Vendido", data: dados.map(d => d.credito), backgroundColor: "#28a745" },
-        { label: "Crédito Recebido", data: dados.map(d => d.creditoRecebido), backgroundColor: "#98e698" },
-        { label: "Pix Vendido", data: dados.map(d => d.pix), backgroundColor: "#ffc107" },
-        { label: "Pix Recebido", data: dados.map(d => d.pixRecebido), backgroundColor: "#ffe680" },
-        { label: "Voucher Vendido", data: dados.map(d => d.voucher), backgroundColor: "#dc3545" },
-        { label: "Voucher Recebido", data: dados.map(d => d.voucherRecebido), backgroundColor: "#f5a6a6" }
+        { label: "Previsão Crédito", data: previsao, backgroundColor: "#66CCFF" },
+        { label: "Crédito Recebido", data: receb, backgroundColor: "#99FFCC" }
       ]
     },
-    options: {
-      responsive: true,
-      plugins: {
-        title: { display: true, text: "Comparativo de Recebimentos por Modalidade" },
-        legend: { position: "bottom" }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: { callback: val => "R$ " + val.toLocaleString("pt-BR") }
-        }
-      }
-    }
-  });
-}
-
-function renderFalhas(dados) {
-  const ctx = document.getElementById("graficoFalhas").getContext("2d");
-  if (window.falhasChart) window.falhasChart.destroy();
-  const falhasCredito = dados.map(d => d.credito ? (((d.credito - d.creditoRecebido) / d.credito) * 100).toFixed(1) : 0);
-  window.falhasChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: dados.map(d => d.label),
-      datasets: [{
-        label: "% Falha no Crédito",
-        data: falhasCredito,
-        backgroundColor: "#ff6384"
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        title: { display: true, text: "Índice de Falhas no Crédito (%)" },
-        legend: { display: false }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: 100,
-          ticks: { callback: val => val + "%" }
-        }
-      }
-    }
-  });
-}
-
-function renderPrevisaoCredito(dados) {
-  const ctx = document.getElementById("graficoPrevisao").getContext("2d");
-  if (window.previsaoChart) window.previsaoChart.destroy();
-  window.previsaoChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: dados.map(d => d.label),
-      datasets: [
-        { label: "Previsto Crédito", data: dados.map(d => d.previsao), backgroundColor: "#6f42c1" },
-        { label: "Recebido Crédito", data: dados.map(d => d.creditoRecebido), backgroundColor: "#b39ddb" }
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        title: { display: true, text: "Previsão vs Crédito Recebido" },
-        legend: { position: "bottom" }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: { callback: val => "R$ " + val.toLocaleString("pt-BR") }
-        }
-      }
-    }
+    options: { responsive: true, plugins: { legend: { position: "bottom" } } }
   });
 }
 

@@ -120,42 +120,51 @@ let dadosVendas = [];
 let dadosRecebidos = [];
 let chartRecebimentos, chartFalhas, chartPrevisao;
 
+function setDefaultDates() {
+  const hoje = new Date();
+  const ontem = new Date();
+  ontem.setDate(hoje.getDate() - 1);
+  const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+
+  document.getElementById("filtroDataInicio").value = primeiroDiaMes.toISOString().split("T")[0];
+  document.getElementById("filtroDataFim").value = ontem.toISOString().split("T")[0];
+}
+
 async function carregarDados() {
+  setDefaultDates();
   const [vendas, recebidos] = await Promise.all([
     fetch(URL_VENDAS).then(res => res.json()),
     fetch(URL_EXTRATO).then(res => res.json())
   ]);
 
-  dadosVendas = agruparVendas(vendas);
-  dadosRecebidos = agruparVendas(recebidos); // ajustar estrutura para mesmo agrupamento
+  dadosVendas = agruparPorDiaEmpresa(vendas);
+  dadosRecebidos = agruparPorDiaEmpresa(recebidos);
 
   preencherEmpresas([...new Set(vendas.map(v => v.Empresa))]);
   filtrar();
 }
 
-function agruparVendas(dados) {
-  const agrupado = {};
-  dados.forEach(({ Empresa, Data, Categoria, Valor }) => {
-    const chave = Empresa + '_' + Data;
-    if (!agrupado[chave]) {
-      agrupado[chave] = { empresa: Empresa, data: Data, debito: 0, credito: 0, pix: 0, voucher: 0 };
-    }
-    const cat = Categoria.toUpperCase();
-    if (cat.includes("DÉBITO")) agrupado[chave].debito += Valor;
-    else if (cat.includes("CRÉDITO")) agrupado[chave].credito += Valor;
-    else if (cat.includes("PIX")) agrupado[chave].pix += Valor;
-    else if (cat.includes("VOUCHER")) agrupado[chave].voucher += Valor;
+function agruparPorDiaEmpresa(lista) {
+  const mapa = {};
+  lista.forEach(({ Empresa, Data, Categoria, Valor }) => {
+    const chave = Empresa + '|' + Data;
+    if (!mapa[chave]) mapa[chave] = { empresa: Empresa, data: Data, debito: 0, credito: 0, pix: 0, voucher: 0 };
+    const categoria = Categoria.toUpperCase();
+    if (categoria.includes("DÉBITO")) mapa[chave].debito += Valor;
+    else if (categoria.includes("CRÉDITO")) mapa[chave].credito += Valor;
+    else if (categoria.includes("PIX")) mapa[chave].pix += Valor;
+    else if (categoria.includes("VOUCHER")) mapa[chave].voucher += Valor;
   });
-  return Object.values(agrupado);
+  return Object.values(mapa);
 }
 
 function preencherEmpresas(empresas) {
   const select = document.getElementById("filtroEmpresa");
-  empresas.forEach(empresa => {
-    const option = document.createElement("option");
-    option.value = empresa;
-    option.textContent = empresa;
-    select.appendChild(option);
+  empresas.forEach(emp => {
+    const opt = document.createElement("option");
+    opt.value = emp;
+    opt.textContent = emp;
+    select.appendChild(opt);
   });
 }
 
@@ -164,18 +173,14 @@ function filtrar() {
   const fim = document.getElementById("filtroDataFim").value;
   const empresa = document.getElementById("filtroEmpresa").value;
 
-  const vendas = dadosVendas.filter(item =>
-    (!empresa || item.empresa === empresa) && (!inicio || item.data >= inicio) && (!fim || item.data <= fim)
-  );
-  const recebidos = dadosRecebidos.filter(item =>
-    (!empresa || item.empresa === empresa) && (!inicio || item.data >= inicio) && (!fim || item.data <= fim)
-  );
+  const vendasFiltradas = dadosVendas.filter(d => (!empresa || d.empresa === empresa) && d.data >= inicio && d.data <= fim);
+  const recebidosFiltrados = dadosRecebidos.filter(d => (!empresa || d.empresa === empresa) && d.data >= inicio && d.data <= fim);
 
-  gerarGraficos(vendas, recebidos);
+  desenharGraficos(vendasFiltradas, recebidosFiltrados);
 }
 
-function gerarGraficos(vendas, recebidos) {
-  const dias = [...new Set([...vendas, ...recebidos].map(i => i.data))].sort();
+function desenharGraficos(vendas, recebidos) {
+  const dias = [...new Set([...vendas.map(v => v.data), ...recebidos.map(r => r.data)])].sort();
   const modalidades = ["debito", "credito", "pix", "voucher"];
   const cores = {
     debito: ["#0000FF", "#3399FF"],
@@ -184,25 +189,25 @@ function gerarGraficos(vendas, recebidos) {
     voucher: ["#FF3333", "#FF9999"]
   };
 
-  const datasets = [];
+  const datasetsRecebimentos = [];
   modalidades.forEach(mod => {
-    datasets.push({ label: `${mod.charAt(0).toUpperCase() + mod.slice(1)} Vendido`, data: [], backgroundColor: cores[mod][0] });
-    datasets.push({ label: `${mod.charAt(0).toUpperCase() + mod.slice(1)} Recebido`, data: [], backgroundColor: cores[mod][1] });
+    datasetsRecebimentos.push({ label: `${mod.charAt(0).toUpperCase() + mod.slice(1)} Vendido`, data: [], borderColor: cores[mod][0], fill: false });
+    datasetsRecebimentos.push({ label: `${mod.charAt(0).toUpperCase() + mod.slice(1)} Recebido`, data: [], borderColor: cores[mod][1], fill: false });
   });
 
   dias.forEach(dia => {
     const vend = vendas.find(v => v.data === dia) || {};
     const rec = recebidos.find(r => r.data === dia) || {};
     modalidades.forEach((mod, i) => {
-      datasets[i * 2].data.push(vend[mod] || 0);
-      datasets[i * 2 + 1].data.push(rec[mod] || 0);
+      datasetsRecebimentos[i * 2].data.push(vend[mod] || 0);
+      datasetsRecebimentos[i * 2 + 1].data.push(rec[mod] || 0);
     });
   });
 
   if (chartRecebimentos) chartRecebimentos.destroy();
   chartRecebimentos = new Chart(document.getElementById("graficoRecebimentos"), {
-    type: "bar",
-    data: { labels: dias, datasets },
+    type: "line",
+    data: { labels: dias, datasets: datasetsRecebimentos },
     options: { responsive: true, plugins: { legend: { position: "bottom" } } }
   });
 
@@ -224,8 +229,8 @@ function gerarGraficos(vendas, recebidos) {
     options: { responsive: true, plugins: { legend: { position: "top" } }, scales: { y: { min: 0, max: 100 } } }
   });
 
-  const previsao = dias.map(dia => (vendas.find(v => v.data === dia) || {}).credito || 0);
-  const receb = dias.map(dia => (recebidos.find(r => r.data === dia) || {}).credito || 0);
+  const previsao = dias.map(dia => (vendas.find(v => v.data === dia)?.credito || 0));
+  const receb = dias.map(dia => (recebidos.find(r => r.data === dia)?.credito || 0));
 
   if (chartPrevisao) chartPrevisao.destroy();
   chartPrevisao = new Chart(document.getElementById("graficoPrevisao"), {

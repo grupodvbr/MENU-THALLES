@@ -73,6 +73,11 @@
     .empresa-section h3 {
       margin-bottom: 10px;
     }
+    .empresa-section .detalhes {
+      margin-top: 10px;
+      font-size: 0.95em;
+      color: #333;
+    }
     @media (min-width: 768px) {
       .filters {
         flex-direction: row;
@@ -113,9 +118,6 @@
     </div>
   </div>
 
-  <canvas id="graficoRecebimentos"></canvas>
-  <canvas id="graficoFalhas"></canvas>
-  <canvas id="graficoPrevisao"></canvas>
   <div id="graficosPizza"></div>
 </div>
 
@@ -125,7 +127,6 @@ const URL_EXTRATO = "https://script.google.com/macros/s/AKfycbyGSP5oj9xotdhbnLsZ
 
 let dadosVendas = [];
 let dadosRecebidos = [];
-let chartRecebimentos, chartFalhas, chartPrevisao;
 
 function setDefaultDates() {
   const hoje = new Date();
@@ -167,6 +168,7 @@ function agruparPorDiaEmpresa(lista) {
 
 function preencherEmpresas(empresas) {
   const select = document.getElementById("filtroEmpresa");
+  select.innerHTML = '<option value="">Todas</option>';
   empresas.forEach(emp => {
     const opt = document.createElement("option");
     opt.value = emp;
@@ -183,103 +185,68 @@ function filtrar() {
   const vendasFiltradas = dadosVendas.filter(d => (!empresa || d.empresa === empresa) && d.data >= inicio && d.data <= fim);
   const recebidosFiltrados = dadosRecebidos.filter(d => (!empresa || d.empresa === empresa) && d.data >= inicio && d.data <= fim);
 
-  desenharGraficos(vendasFiltradas, recebidosFiltrados);
-  desenharPizzas(vendasFiltradas, recebidosFiltrados);
+  desenharPizzas(vendasFiltradas, recebidosFiltrados, empresa);
 }
 
-function desenharGraficos(vendas, recebidos) {
-  const dias = [...new Set([...vendas.map(v => v.data), ...recebidos.map(r => r.data)])].sort();
-  const modalidades = ["debito", "credito", "pix", "voucher"];
-  const cores = {
-    debito: ["#0000FF", "#3399FF"],
-    credito: ["#00CC00", "#66FF66"],
-    pix: ["#FFD700", "#FFEE99"],
-    voucher: ["#FF3333", "#FF9999"]
-  };
-
-  const datasetsRecebimentos = [];
-  modalidades.forEach(mod => {
-    datasetsRecebimentos.push({ label: `${mod.charAt(0).toUpperCase() + mod.slice(1)} Vendido`, data: [], borderColor: cores[mod][0], fill: false });
-    datasetsRecebimentos.push({ label: `${mod.charAt(0).toUpperCase() + mod.slice(1)} Recebido`, data: [], borderColor: cores[mod][1], fill: false });
-  });
-
-  dias.forEach(dia => {
-    const vend = vendas.find(v => v.data === dia) || {};
-    const rec = recebidos.find(r => r.data === dia) || {};
-    modalidades.forEach((mod, i) => {
-      datasetsRecebimentos[i * 2].data.push(vend[mod] || 0);
-      datasetsRecebimentos[i * 2 + 1].data.push(rec[mod] || 0);
-    });
-  });
-
-  if (chartRecebimentos) chartRecebimentos.destroy();
-  chartRecebimentos = new Chart(document.getElementById("graficoRecebimentos"), {
-    type: "line",
-    data: { labels: dias, datasets: datasetsRecebimentos },
-    options: { responsive: true, plugins: { legend: { position: "bottom" } } }
-  });
-
-  const falhas = dias.map(dia => {
-    const v = vendas.find(v => v.data === dia) || {};
-    const r = recebidos.find(r => r.data === dia) || {};
-    const valorV = v.credito || 0;
-    const valorR = r.credito || 0;
-    return valorV > 0 ? Math.round((valorR / valorV) * 100) : 0;
-  });
-
-  if (chartFalhas) chartFalhas.destroy();
-  chartFalhas = new Chart(document.getElementById("graficoFalhas"), {
-    type: "line",
-    data: {
-      labels: dias,
-      datasets: [{ label: "% de Crédito Recebido vs Vendido", data: falhas, borderColor: "#FF3333", fill: false }]
-    },
-    options: { responsive: true, plugins: { legend: { position: "top" } }, scales: { y: { min: 0, max: 100 } } }
-  });
-
-  const previsao = dias.map(dia => (vendas.find(v => v.data === dia)?.credito || 0));
-  const receb = dias.map(dia => (recebidos.find(r => r.data === dia)?.credito || 0));
-
-  if (chartPrevisao) chartPrevisao.destroy();
-  chartPrevisao = new Chart(document.getElementById("graficoPrevisao"), {
-    type: "bar",
-    data: {
-      labels: dias,
-      datasets: [
-        { label: "Previsão Crédito", data: previsao, backgroundColor: "#66CCFF" },
-        { label: "Crédito Recebido", data: receb, backgroundColor: "#99FFCC" }
-      ]
-    },
-    options: { responsive: true, plugins: { legend: { position: "bottom" } } }
-  });
-}
-
-function desenharPizzas(vendas, recebidos) {
+function desenharPizzas(vendas, recebidos, empresaSelecionada) {
   const div = document.getElementById("graficosPizza");
   div.innerHTML = "";
   const empresas = [...new Set(vendas.map(v => v.empresa))];
   empresas.forEach(empresa => {
-    const totais = { debito: 0, credito: 0, pix: 0, voucher: 0 };
+    const totaisVendidos = { debito: 0, credito: 0, pix: 0, voucher: 0 };
+    const totaisRecebidos = { debito: 0, credito: 0, pix: 0, voucher: 0 };
     vendas.filter(v => v.empresa === empresa).forEach(v => {
-      totais.debito += v.debito;
-      totais.credito += v.credito;
-      totais.pix += v.pix;
-      totais.voucher += v.voucher;
+      totaisVendidos.debito += v.debito;
+      totaisVendidos.credito += v.credito;
+      totaisVendidos.pix += v.pix;
+      totaisVendidos.voucher += v.voucher;
     });
-    const canvas = document.createElement("canvas");
+    recebidos.filter(r => r.empresa === empresa).forEach(r => {
+      totaisRecebidos.debito += r.debito;
+      totaisRecebidos.credito += r.credito;
+      totaisRecebidos.pix += r.pix;
+      totaisRecebidos.voucher += r.voucher;
+    });
+
     const section = document.createElement("div");
     section.classList.add("empresa-section");
     const title = document.createElement("h3");
-    title.textContent = `Distribuição de Vendas - ${empresa}`;
+    title.textContent = `Distribuição - ${empresa}`;
     section.appendChild(title);
+
+    const canvas = document.createElement("canvas");
+    canvas.height = (empresaSelecionada && empresaSelecionada === empresa) ? 250 : 100;
     section.appendChild(canvas);
+
+    const detalhes = document.createElement("div");
+    detalhes.classList.add("detalhes");
+    if (empresaSelecionada === empresa) {
+      detalhes.innerHTML = `
+        <strong>Vendas:</strong><br>
+        Débito: R$ ${totaisVendidos.debito.toFixed(2)}<br>
+        Crédito: R$ ${totaisVendidos.credito.toFixed(2)}<br>
+        Pix: R$ ${totaisVendidos.pix.toFixed(2)}<br>
+        Voucher: R$ ${totaisVendidos.voucher.toFixed(2)}<br><br>
+        <strong>Recebido:</strong><br>
+        Débito: R$ ${totaisRecebidos.debito.toFixed(2)}<br>
+        Crédito: R$ ${totaisRecebidos.credito.toFixed(2)}<br>
+        Pix: R$ ${totaisRecebidos.pix.toFixed(2)}<br>
+        Voucher: R$ ${totaisRecebidos.voucher.toFixed(2)}<br><br>
+        <strong>À Receber:</strong><br>
+        Crédito: R$ ${(totaisVendidos.credito - totaisRecebidos.credito).toFixed(2)}<br>
+        Voucher: R$ ${(totaisVendidos.voucher - totaisRecebidos.voucher).toFixed(2)}
+      `;
+      section.appendChild(detalhes);
+    }
+
     div.appendChild(section);
+
     new Chart(canvas, {
       type: "pie",
       data: {
         labels: ["Débito", "Crédito", "Pix", "Voucher"],
         datasets: [{
-          data: [totais.debito, totais.credito, totais.pix, totais.voucher],
+          data: [totaisVendidos.debito, totaisVendidos.credito, totaisVendidos.pix, totaisVendidos.voucher],
           backgroundColor: ["#0000FF", "#00CC00", "#FFD700", "#FF3333"]
         }]
       },

@@ -67,6 +67,12 @@
       margin-bottom: 30px;
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
+    .empresa-section {
+      margin-top: 30px;
+    }
+    .empresa-section h3 {
+      margin-bottom: 10px;
+    }
     @media (min-width: 768px) {
       .filters {
         flex-direction: row;
@@ -110,6 +116,7 @@
   <canvas id="graficoRecebimentos"></canvas>
   <canvas id="graficoFalhas"></canvas>
   <canvas id="graficoPrevisao"></canvas>
+  <div id="graficosPizza"></div>
 </div>
 
 <script>
@@ -177,6 +184,7 @@ function filtrar() {
   const recebidosFiltrados = dadosRecebidos.filter(d => (!empresa || d.empresa === empresa) && d.data >= inicio && d.data <= fim);
 
   desenharGraficos(vendasFiltradas, recebidosFiltrados);
+  desenharPizzas(vendasFiltradas, recebidosFiltrados);
 }
 
 function desenharGraficos(vendas, recebidos) {
@@ -243,6 +251,40 @@ function desenharGraficos(vendas, recebidos) {
       ]
     },
     options: { responsive: true, plugins: { legend: { position: "bottom" } } }
+  });
+}
+
+function desenharPizzas(vendas, recebidos) {
+  const div = document.getElementById("graficosPizza");
+  div.innerHTML = "";
+  const empresas = [...new Set(vendas.map(v => v.empresa))];
+  empresas.forEach(empresa => {
+    const totais = { debito: 0, credito: 0, pix: 0, voucher: 0 };
+    vendas.filter(v => v.empresa === empresa).forEach(v => {
+      totais.debito += v.debito;
+      totais.credito += v.credito;
+      totais.pix += v.pix;
+      totais.voucher += v.voucher;
+    });
+    const canvas = document.createElement("canvas");
+    const section = document.createElement("div");
+    section.classList.add("empresa-section");
+    const title = document.createElement("h3");
+    title.textContent = `Distribuição de Vendas - ${empresa}`;
+    section.appendChild(title);
+    section.appendChild(canvas);
+    div.appendChild(section);
+    new Chart(canvas, {
+      type: "pie",
+      data: {
+        labels: ["Débito", "Crédito", "Pix", "Voucher"],
+        datasets: [{
+          data: [totais.debito, totais.credito, totais.pix, totais.voucher],
+          backgroundColor: ["#0000FF", "#00CC00", "#FFD700", "#FF3333"]
+        }]
+      },
+      options: { responsive: true, plugins: { legend: { position: "bottom" } } }
+    });
   });
 }
 

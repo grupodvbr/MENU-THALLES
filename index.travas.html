@@ -22,11 +22,10 @@
   @media(min-width:680px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
   .kpi{background:var(--card);border-radius:14px;padding:10px;box-shadow:var(--shadow);position:relative;min-height:92px}
   .kpi .label{color:var(--muted);font-size:11px;margin-bottom:4px}
-  .kpi .value{font-size:22px;font-weight:900} /* NÚMEROS DOS CARDS */
-  .kpi .hint{color:var(--muted);font-size:13px;margin-top:2px} /* LETRAS DOS CARDS */
+  .kpi .value{font-size:22px;font-weight:900}
+  .kpi .hint{color:var(--muted);font-size:13px;margin-top:2px}
   .kpi.bad{background:var(--redbg);color:var(--red)}
   .kpi.good{background:var(--greenbg);color:var(--green)}
-  .kpi.warn{background:var(--amberbg);color:var(--amber)}
   .progress{height:6px;background:#e5e7eb;border-radius:999px;margin-top:8px;overflow:hidden}
   .progress>span{display:block;height:100%;background:var(--primary);width:0;border-radius:999px;transition:width .2s}
   .note{color:#6b7280;font-size:12px;margin-top:6px}
@@ -40,13 +39,7 @@
   .list{margin:0;padding-left:18px}
   .list li+li{margin-top:6px}
 
-  .chart-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;align-items:center}
-  .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #e5e7eb;border-radius:999px;padding:6px 10px;background:#fff}
-  .chip select,.chip input{border:none;background:transparent;outline:none;font-size:13px}
-  .chip button{border:none;background:#0ea5e9;color:#fff;border-radius:999px;padding:6px 10px;cursor:pointer}
-  .chart-note{margin:6px 0 0 4px;color:#6b7280;font-size:13px}
-
-  /* ===== Modal de planos (existente) ===== */
+  /* ===== Modal de planos ===== */
   #modal{display:none;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center}
   #modal .backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45)}
   #modal .panel{position:relative;z-index:1;width:min(94vw,680px);max-height:80vh;overflow:auto;background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:12px}
@@ -74,7 +67,6 @@
   #cmp-list li{margin:4px 0}
   #cmp-note{color:#6b7280;font-size:12px;margin-top:6px}
 
-  /* evita "balanço" quando o modal abre (scroll lock + compensação) */
   body.modal-open{overflow:hidden;padding-right:var(--sbw,0px);}
 </style>
 </head>
@@ -98,17 +90,18 @@
     </label>
   </div>
 
-    <div id="content" class="section"></div>
-  <!-- Botão para ir para index.comparacao.html -->
+  <div id="content" class="section"></div>
+
   <div style="margin-top:20px; text-align:center;">
-  <a href="index.comparacao.html" 
-     style="background:#0ea5e9; color:#fff; padding:10px 20px; 
-            border-radius:8px; text-decoration:none; font-weight:600; 
-            display:inline-block;">
-    Análisar planos de contas
+    <a href="index.comparacao.html" 
+       style="background:#0ea5e9; color:#fff; padding:10px 20px; 
+              border-radius:8px; text-decoration:none; font-weight:600; 
+              display:inline-block;">
+      Análisar planos de contas
     </a>
   </div>
-</div> <!-- Fim da .wrap -->
+</div>
+
 <!-- Modal de Planos -->
 <div id="modal" aria-hidden="true">
   <div class="backdrop" data-close></div>
@@ -143,7 +136,7 @@
 const API_BASE='https://script.google.com/macros/s/AKfycbyDGQ-srD7OFMORoRo7ZH2BDaz_tJVVlsqjdlLTI0OpkEKv3tQ5Ny02h3blo7GKjsFEIw/exec';
 const EMPRESAS=['VILLA GOURMET'];
 
-/* ======= PLANOS VÁLIDOS (para soma "Fornecedores") ======= */
+/* ======= PLANOS VÁLIDOS ======= */
 const PLANOS_VALIDOS = new Set([
   'Fornecedores em geral (insumos)','Bebidas (adegas)','Cerveja/Long','Refrigerantes/água/suco',
   'Frios/congelados','Doces e chocolates','Laticínios','Gelatto','Hortaliças (Padaria)','Hortifruti',
@@ -167,19 +160,29 @@ const TTL=5*60*1000, CK=(e,p)=>`travas:${e}|${p}`;
 const getC=(e,p)=>{try{const r=sessionStorage.getItem(CK(e,p));if(!r)return null;const o=JSON.parse(r);return (Date.now()-o.t<TTL)?o.v:null}catch{return null}};
 const setC=(e,p,v)=>{try{sessionStorage.setItem(CK(e,p),JSON.stringify({t:Date.now(),v}))}catch{}};
 
-/* Datas / previsão */
+/* Datas */
 function parseYYYYMM(s){if(!s)return null;const [y,m]=s.split('-').map(Number);if(!y||!m)return null;return new Date(y,m-1,1)}
 function daysInMonth(d){return new Date(d.getFullYear(),d.getMonth()+1,0).getDate()}
 function monthCompare(a,b){if(a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth())return 0;return (a<b)?-1:1}
-function progressCalc(limit, spent, perStr){
-  const today=new Date(), pd=parseYYYYMM(perStr)||new Date(today.getFullYear(),today.getMonth(),1);
-  const dim=daysInMonth(pd), cmp=monthCompare(pd,new Date(today.getFullYear(),today.getMonth(),1));
-  let elapsed=0, remain=0;
-  if(cmp<0){elapsed=dim;remain=0;} else if(cmp>0){elapsed=0;remain=dim;} else {elapsed=Math.min(today.getDate(),dim);remain=Math.max(dim-elapsed,0);}
-  const pct=limit>0?spent/limit*100:0, available=limit-spent;
-  const daily=elapsed>0?spent/elapsed:0, forecast=spent+daily*remain, forecastPct=limit>0?forecast/limit*100:0;
-  let status='neutral'; if(cmp<0) status=spent>limit?'bad':'good'; else if(cmp===0) status=forecast>limit?'bad':(pct>=80?'warn':'good'); else status=pct>=80?'warn':'neutral';
-  return {pct,available,forecast,forecastPct,status};
+
+/* COR POR REGRA 80% */
+function statusBy80(limit, spent, perStr){
+  const today=new Date();
+  const pd=parseYYYYMM(perStr)||new Date(today.getFullYear(),today.getMonth(),1);
+  const cmp=monthCompare(pd,new Date(today.getFullYear(),today.getMonth(),1)); // -1 passado, 0 atual, 1 futuro
+  const pct = limit>0 ? (spent/limit*100) : 0;
+
+  // Regra solicitada:
+  // >80% -> vermelho
+  // mês fechado (passado) e <80% -> verde
+  // senão -> branco (sem classe)
+  if (cmp < 0) { // mês já fechado
+    if (pct < 80) return 'good';
+    if (pct > 80) return 'bad';
+    return ''; // exatamente 80%: branco
+  } else { // mês corrente ou futuro
+    return (pct > 80) ? 'bad' : '';
+  }
 }
 
 /* Fonte 9 total (fallbacks) */
@@ -193,7 +196,7 @@ function fonte9Total(rec){
   return 0;
 }
 
-/* Planos (detecta layout vertical B:C e inclui a linha onde A tem a data) */
+/* Planos */
 function extractPlanos(rec){
   if (Array.isArray(rec?.planosFonte9) && rec.planosFonte9.length) {
     return rec.planosFonte9.map(p=>({nome:String(p.nome??'—'),valor:Math.abs(parseBR(p.valor??0))}));
@@ -202,8 +205,8 @@ function extractPlanos(rec){
   if (Array.isArray(grid) && Array.isArray(grid[0]) && grid[0].length >= 3) {
     const out=[];
     for (let r=0; r<grid.length; r++){
-      const nome = grid[r][1];           // Coluna B
-      const val  = parseBR(grid[r][2]);  // Coluna C
+      const nome = grid[r][1];           
+      const val  = parseBR(grid[r][2]);  
       if (nome != null && nome !== '' && !isNaN(val) && val !== 0){
         out.push({nome:String(nome), valor:Math.abs(val)});
       }
@@ -254,12 +257,13 @@ async function getEmpresaPeriodo(emp, periodo){
 const selEmpresa=document.getElementById('empresa');
 const inpPeriodo=document.getElementById('periodo');
 const container=document.getElementById('content');
-  selEmpresa.value = 'VILLA GOURMET';
-selEmpresa.style.display = 'none'; // Oculta o seletor no painel
+selEmpresa.value = 'VILLA GOURMET';
+selEmpresa.style.display = 'none';
+
 let ChartLib=null;
 let currentRun = 0;
 
-/* Modal helpers — evita balanço */
+/* Modal helpers */
 function scrollbarWidth(){
   const div=document.createElement('div');
   div.style.visibility='hidden'; div.style.overflow='scroll'; div.style.position='absolute'; div.style.top='-9999px'; div.style.width='100px'; div.style.height='100px';
@@ -290,7 +294,6 @@ function openModal(title, items){
       const b=document.createElement('b'); b.textContent=d.nome||'—';
       const v=document.createElement('span'); v.className='val'; v.textContent=moeda(Math.abs(parseBR(d.valor||0)));
       btn.appendChild(b); btn.appendChild(v); li.appendChild(btn); ul.appendChild(li);
-      // Ao clicar no plano, abre comparativo entre empresas
       btn.addEventListener('click', ()=> openComparativoPlano(d.nome||'—', inpPeriodo.value));
     });
   }else empty.style.display='block';
@@ -313,18 +316,13 @@ async function ensureChart(){
 
 let cmpChart = null;
 
-// Abre o modal comparativo com barras + lista de valores e %
 async function openComparativoPlano(planoNome, periodo){
   try{
     const Chart = await ensureChart();
-    const per = /^\d{4}-\d{2}$/.test(periodo||'') ? periodo : (()=>{
-      const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    })();
+    const per = /^\d{4}-\d{2}$/.test(periodo||'') ? periodo : (()=>{const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;})();
 
-    // Busca dados de todas as empresas em paralelo
     const results = await Promise.allSettled(EMPRESAS.map(emp => getEmpresaPeriodo(emp, per)));
 
-    // Para cada empresa: valor do plano e total de Fornecedores (PLANOS_VALIDOS)
     const labels=[], valores=[], percents=[], detalhes=[];
     results.forEach((res, idx)=>{
       const emp = EMPRESAS[idx];
@@ -332,10 +330,8 @@ async function openComparativoPlano(planoNome, periodo){
       if(res.status==='fulfilled'){
         const rec = res.value;
         const planos = extractPlanos(rec);
-        // total fornecedores: soma só dos válidos (fallback: soma de todos os planos)
         const somaValid = planos.filter(p=>PLANOS_VALIDOS.has(String(p.nome))).reduce((a,p)=>a+Math.abs(parseBR(p.valor||0)),0);
         totalFor = somaValid>0 ? somaValid : planos.reduce((a,p)=>a+Math.abs(parseBR(p.valor||0)),0);
-        // valor do plano selecionado (match normalizado)
         const alvo = planos.find(p=>norm(p.nome)===norm(planoNome));
         valPlano = alvo ? Math.abs(parseBR(alvo.valor||0)) : 0;
       }
@@ -346,51 +342,31 @@ async function openComparativoPlano(planoNome, periodo){
       detalhes.push({emp, valPlano, pct});
     });
 
-    // Monta UI
     document.getElementById('cmp-title').textContent = `Comparativo — ${planoNome}`;
     const [y,m] = per.split('-'); 
     document.getElementById('cmp-meta').textContent = `Período: ${m}/${y}`;
 
-    // Lista abaixo do gráfico
     const list = document.getElementById('cmp-list');
     list.innerHTML = detalhes
       .sort((a,b)=>b.valPlano-a.valPlano)
       .map((d,i)=>`<li><b>${i+1}º</b> ${d.emp}: <b>${moeda(d.valPlano)}</b> — ${d.pct.toFixed(1)}%</li>`)
       .join('') || '<li>Nada a mostrar.</li>';
 
-    // Gráfico
     const ctx = document.getElementById('cmp-chart').getContext('2d');
     if(cmpChart){ cmpChart.destroy(); cmpChart=null; }
     cmpChart = new Chart(ctx, {
       type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: `Valor do plano — ${planoNome}`,
-          data: valores
-          // sem cores específicas (segue padrão)
-        }]
-      },
+      data: { labels, datasets: [{ label: `Valor do plano — ${planoNome}`, data: valores }] },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false,
         plugins: {
           legend: { display: true, position: 'bottom' },
-          tooltip: {
-            callbacks: {
-              label: (ctx)=> {
-                const v = ctx.parsed.y||0;
-                const pct = percents[ctx.dataIndex]||0;
-                return `${moeda(v)} — ${pct.toFixed(1)}%`;
-              }
-            }
-          }
+          tooltip: { callbacks: { label: (ctx)=> `${moeda(ctx.parsed.y||0)} — ${ (percents[ctx.dataIndex]||0).toFixed(1)}%` } }
         },
         scales: { y: { beginAtZero: true } }
       }
     });
 
-    // Abre modal
     const modal=document.getElementById('cmp-modal');
     modal.style.display='flex';
     modal.setAttribute('aria-hidden','false');
@@ -475,34 +451,38 @@ async function run(){
           : aliases(rec,['fornecedoresComprado','valorCompradoFornecedores','compradoFornecedores'],0))
       : 0;
 
-    const gTotal=progressCalc(travaTotal, fonte9, periodo);
-    const gForn =progressCalc(fornecLim,  fornComp, periodo);
+    // Percentuais
+    const pctTotal = travaTotal>0 ? (fonte9/travaTotal*100) : 0;
+    const pctForn  = fornecLim>0 ? (fornComp/fornecLim*100) : 0;
+
+    // Classes pelas regras (>80 vermelho; mês fechado <80 verde; senão branco)
+    const clsTotal = statusBy80(travaTotal, fonte9, periodo);
+    const clsForn  = statusBy80(fornecLim,  fornComp, periodo);
 
     sec.innerHTML = `
       <div class="title">${emp}</div>
       <div class="kpis">
-        <div class="kpi">
+        <div class="kpi ${clsTotal}">
           <div class="label">Trava Total de Pagamentos</div>
           <div class="value">${moeda(travaTotal)}</div>
           <div class="hint">
-            Gasto geral: <b>${moeda(fonte9)}</b> • ${gTotal.pct.toFixed(1)}%<br/>
-            Valor geral disponível: <b style="color:${gTotal.available<0?'#b91c1c':'inherit'}">${moeda(gTotal.available)}</b>
+            Gasto geral: <b>${moeda(fonte9)}</b> • ${pctTotal.toFixed(1)}%<br/>
+            Valor geral disponível: <b style="color:${(travaTotal-fonte9)<0?'#b91c1c':'inherit'}">${moeda(travaTotal-fonte9)}</b>
           </div>
-          <div class="progress"><span style="width:${Math.min(Math.max(gTotal.pct,0),100)}%"></span></div>
+          <div class="progress"><span style="width:${Math.min(Math.max(pctTotal,0),100)}%"></span></div>
           <div class="note">Atualizado em: ${rec?.dataRef || '—'}</div>
           ${!periodOk?`<div class="note">Sem dados para ${periodo}. Última data: ${rec?.dataRef||'—'}.</div>`:''}
         </div>
 
-        <div class="kpi ${gForn.status==='bad'?'bad':gForn.status==='warn'?'warn':(gForn.status==='good'?'good':'')}">
+        <div class="kpi ${clsForn}">
           <button class="btn-link" data-ver-planos>Ver planos</button>
           <div class="label">Trava para fornecedores</div>
           <div class="value">${moeda(fornecLim)}</div>
           <div class="hint">
-            Já comprado em FORNECEDORES: <b>${moeda(fornComp)}</b> • ${gForn.pct.toFixed(1)}%<br/>
-            Disponível: <b style="color:${gForn.available<0?'#b91c1c':'inherit'}">${moeda(gForn.available)}</b><br/>
-            Previsão fim do mês: <b>${moeda(gForn.forecast)}</b> (${gForn.forecastPct.toFixed(1)}%)
+            Já comprado em FORNECEDORES: <b>${moeda(fornComp)}</b> • ${pctForn.toFixed(1)}%<br/>
+            Disponível: <b style="color:${(fornecLim-fornComp)<0?'#b91c1c':'inherit'}">${moeda(fornecLim-fornComp)}</b>
           </div>
-          <div class="progress"><span style="width:${Math.min(Math.max(gForn.pct,0),100)}%"></span></div>
+          <div class="progress"><span style="width:${Math.min(Math.max(pctForn,0),100)}%"></span></div>
           <div class="note">Atualizado em: ${rec?.dataRef || '—'}</div>
           ${!periodOk?`<div class="note">Sem dados para ${periodo}. Última data: ${rec?.dataRef||'—'}.</div>`:''}
         </div>
@@ -549,7 +529,7 @@ function renderChartBlock(emp){
 /* Range de meses */
 function monthRange(from,to){let a=parseYYYYMM(from),b=parseYYYYMM(to);if(!a||!b)return[];if(a>b){const t=a;a=b;b=t;}const out=[],c=new Date(a);while(c<=b){out.push(`${c.getFullYear()}-${String(c.getMonth()+1).padStart(2,'0')}`);c.setMonth(c.getMonth()+1);}return out}
 
-/* Séries — paraleliza requisições e preserva ordem */
+/* Séries */
 async function buildSeries(emp, from, to){
   const months=monthRange(from,to);
   const results = await Promise.all(months.map(per => getEmpresaPeriodo(emp, per)));

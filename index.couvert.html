@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
+<title>Painel de couvert — VILLA GOURMET LEM</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f4f6f8; --card:#fff; --text:#0f172a; --muted:#64748b; --line:#e5e7eb;
+    --green:#16a34a; --red:#ef4444; --radius:16px; --shadow:0 14px 34px rgba(2,6,23,.08);
+    --brand:#0b1220; --blue:#2563eb; --blue-100:#dbeafe;
+  }
+  *{box-sizing:border-box; overflow-wrap:anywhere; word-break:break-word}
+  html,body{margin:0;background:var(--bg);font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;color:var(--text)}
+
+  header{background:var(--brand);color:#fff;padding:14px 16px;display:flex;align-items:center}
+  header h1{font-size:clamp(14px,3.5vw,18px);margin:0;font-weight:800}
+
+  .wrap{margin:10px auto;padding:0 12px;width:100%;max-width:100vw}
+  .grid{display:grid;gap:10px}
+  .grid.cols-3{grid-template-columns:repeat(12,minmax(0,1fr))}
+  .kpi-card{grid-column:span 4 / span 4}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:12px}
+  .muted{color:var(--muted)}
+  .kpi h3{margin:0 0 2px;font-size:clamp(12px,3.3vw,14px);color:var(--muted)}
+  .kpi .val{font-size:clamp(18px,5.5vw,24px);font-weight:800}
+
+  .btn{appearance:none;border:1px solid var(--line);background:#fff;border-radius:12px;padding:8px 10px;
+       font-size:clamp(12px,3.5vw,14px);cursor:pointer;font-weight:800}
+  .btn.dark{background:#111827;color:#fff;border-color:#111827}
+
+  /* tabelas com rolagem horizontal apenas nelas */
+  .table-wrap{width:100%;overflow-x:auto;overflow-y:hidden}
+  .table{width:100%;border-collapse:collapse;font-size:clamp(11px,3.2vw,13px);min-width:720px}
+  .table th,.table td{border-bottom:1px solid var(--line);padding:10px 8px;text-align:left;white-space:nowrap}
+  .table tr.clickable{cursor:pointer}
+
+  .badge{display:inline-block;padding:3px 7px;border-radius:999px;font-size:clamp(10px,3vw,11px);font-weight:700}
+  .lucr{background:#eafff0;color:#065f46;border:1px solid #bbf7d0}
+  .prej{background:#ffecec;color:#7f1d1d;border:1px solid #fecaca}
+
+  /* details “a pagar” */
+  details.paylist{margin-top:8px;border:1px solid var(--line);border-radius:12px;background:#fff}
+  details.paylist > summary{list-style:none;padding:9px 10px;cursor:pointer;font-weight:800}
+  details.paylist > summary::-webkit-details-marker{display:none}
+  .smalltable{width:100%;border-collapse:collapse;min-width:560px}
+  .smalltable th,.smalltable td{border-top:1px solid var(--line);padding:9px 8px;font-size:clamp(11px,3.1vw,13px);text-align:left;white-space:nowrap}
+  .smallmuted{color:#6b7280;font-size:clamp(10px,2.9vw,12px)}
+
+  /* popovers + overlay */
+  .popover{position:fixed;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+           padding:10px;z-index:60;display:none;width:min(94vw,360px);max-height:80vh;overflow:auto}
+  .overlay{position:fixed;inset:0;background:transparent;display:none;z-index:55}
+
+  /* calendário */
+  .cal{width:100%}
+  .cal .cal-head{display:flex;align-items:center;justify-content:space-between;padding:6px 8px}
+  .cal .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:8px}
+  .cal .dow{font-size:clamp(10px,2.8vw,12px);color:var(--muted);text-align:center}
+  .cal .day{height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid transparent;font-weight:700}
+  .cal .day:hover{background:#f1f5f9}
+  .cal .day.out{opacity:.35}
+  .cal .day.sel{background:var(--blue);color:#fff}
+  .cal .day.range{background:var(--blue-100);color:#111827}
+  .cal .foot{display:flex;justify-content:flex-end;gap:8px;padding:8px}
+
+  /* modal histórico fornecedor */
+  .modal{position:fixed;inset:0;background:rgba(2,6,23,.5);display:none;z-index:120}
+  .sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:20px 20px 0 0;border:1px solid var(--line);
+         box-shadow:var(--shadow);max-height:85vh;display:flex;flex-direction:column}
+  .sheet header{background:#fff;color:#000;padding:10px 12px;border-bottom:1px solid var(--line);border-radius:20px 20px 0 0}
+  .sheet header h3{margin:0;font-size:clamp(14px,4vw,16px);font-weight:800}
+  .sheet header small{color:#64748b}
+  .sheet .content{overflow:auto;padding:10px 12px}
+  .sheet .close{position:absolute;right:12px;top:10px}
+
+  #loading{position:fixed;inset:0;background:rgba(255,255,255,0.85);display:flex;align-items:center;justify-content:center;
+           font-size:18px;font-weight:800;color:#0b1220;z-index:100}
+
+  @media(max-width:760px){
+    .wrap{padding:0 10px}
+    .grid.cols-3{grid-template-columns:1fr}
+    .kpi-card{grid-column:auto}
+    .card{padding:10px;border-radius:14px}
+  }
+</style>
+</head>
+<body>
+<header><h1>Painel de Arrecadação x Pagamentos — VILLA GOURMET LEM</h1></header>
+
+<div id="loading">⏳ Carregando dados…</div>
+
+<div class="wrap">
+  <div class="card">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="btn" id="btnPR">Pagamentos: <span id="lblPR"></span></button>
+      <button class="btn" id="btnAR">ABC: <span id="lblAR"></span></button>
+    </div>
+  </div>
+
+  <div class="grid cols-3">
+    <div class="card kpi kpi-card">
+      <div>
+        <h3>Arrecadação (Couvert)</h3>
+        <div class="val" id="kArrecadacao">⏳ carregando…</div>
+        <div id="abcStatus" class="muted" style="font-size:clamp(11px,3vw,12px)"></div>
+      </div>
+    </div>
+
+    <div class="card kpi kpi-card" id="cardPagamentos">
+      <div>
+        <h3>Pagamentos</h3>
+        <div class="val" id="kPagamentos">R$ 0,00</div>
+        <div class="pay-break">
+          <span class="pill"><span class="tag">Pago</span><span id="kPago">R$ 0,00</span></span>
+          <span class="pill"><span class="tag">A pagar</span><span id="kApagar">R$ 0,00</span></span>
+          <span class="pill"><span class="tag">Total</span><span id="kTotal">R$ 0,00</span></span>
+        </div>
+        <details class="paylist" id="dlstApagar">
+          <summary>A pagar (<span id="qtApagar">0</span>)</summary>
+          <div style="padding:0 10px 10px 10px">
+            <div class="table-wrap">
+              <table class="smalltable" id="tblApagar">
+                <thead><tr><th>Vencimento</th><th>Fornecedor</th><th style="text-align:right">Valor</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div class="smallmuted" id="msgApagar" style="display:none">Sem lançamentos em aberto no período.</div>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="card kpi kpi-card">
+      <div><h3>Resultado</h3><div class="val" id="kResultado">R$ 0,00 <span id="badgeResult" class="badge lucr">LUCRO</span></div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Resumo</h3>
+    <div class="table-wrap">
+      <table class="table" id="tblResumoEmp">
+        <thead><tr><th>Empresa</th><th>Arrecadação</th><th>Pagamentos</th><th>Resultado</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Pagamentos (detalhes)</h3>
+    <div class="table-wrap">
+      <table class="table" id="tblPagamentos">
+        <thead><tr>
+          <th>Data</th><th>Fornecedor</th><th>Histórico</th><th>Valor</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="msgEmpty" class="muted" style="display:none;margin-top:6px">Nenhum pagamento encontrado nesse período.</div>
+  </div>
+</div>
+
+<!-- Modal com histórico por fornecedor -->
+<div class="modal" id="modal">
+  <div class="sheet" style="left:0;right:0;">
+    <button class="btn close" onclick="closeModal()">Fechar</button>
+    <header>
+      <h3 id="mTitle">Histórico</h3>
+      <small id="mSub"></small>
+    </header>
+    <div class="content" id="mBody"></div>
+  </div>
+</div>
+
+<!-- overlay + popovers dos calendários -->
+<div class="overlay" id="overlay"></div>
+<div class="popover" id="popPR"></div>
+<div class="popover" id="popAR"></div>
+
+<script>
+/*** CONFIG ***/
+const COMPANY = "VILLA GOURMET LEM";
+
+/*** URLs ***/
+const SHEET_API = "https://script.google.com/macros/s/AKfycbxWaj8E9HFvxJLojit8u8dvTopG0RLTtbBXQdmD6U93dgBSiupHyu79idCkeFD0a4FZ6w/exec";
+const ABC_URL   = "https://script.google.com/macros/s/AKfycbwMJJ_MV7AQX-Nw2CLGECsmogfVGt9DTOVF1zpiZh2QCIZuuvqssD25UN-dpGm2YL7s/exec";
+
+/*** STATE ***/
+const ANO = 2025;
+const EMPRESA_REMAP = [
+  {match:["mercatto"], to:"MERCATTO DELÍCIA"},
+  {match:["delicia"],  to:"DELICIA GOURMET"},
+  {match:["villa","lem"], to:"VILLA GOURMET LEM"},
+  {match:["villa"], to:"VILLA GOURMET LEM"},
+];
+
+let pagamentosAll = [];
+let abcAll = [];
+let abcLoaded = false;
+
+// ranges (Date)
+let pIni=null,pFim=null; // pagamentos
+let aIni=null,aFim=null; // ABC
+
+/*** HELPERS ***/
+const $ = s=>document.querySelector(s);
+function brl(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
+function pad2(n){return String(n).padStart(2,'0');}
+function cleanNumber(v){
+  if(v==null||v==="") return 0;
+  if(typeof v==="number") return v;
+  return parseFloat(String(v).replace(/[R$\s]/g,"").replace(/\./g,"").replace(",", "."))||0;
+}
+function toISODate(s){
+  if(!s) return "";
+  if (typeof s === "string") {
+    const str = s.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
+      const [d,m,y] = str.split("/").map(Number);
+      return `${y}-${pad2(m)}-${pad2(d)}`;
+    }
+  }
+  const d = (s instanceof Date) ? s : new Date(s);
+  if (!isNaN(d)) {
+    const dd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    return `${dd.getFullYear()}-${pad2(dd.getMonth()+1)}-${pad2(dd.getDate())}`;
+  }
+  return "";
+}
+function parseISO(s){
+  const iso = toISODate(s);
+  if(!iso) return new Date(NaN);
+  const [y,m,d] = iso.split("-").map(Number);
+  return new Date(y, m-1, d);
+}
+function fmtBR(x){
+  if(!x) return "-";
+  const d = x instanceof Date ? x : parseISO(x);
+  return isNaN(d) ? "-" : d.toLocaleDateString('pt-BR');
+}
+function sameYMD(a,b){return a&&b && a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();}
+function addDays(d, n){return new Date(d.getFullYear(), d.getMonth(), d.getDate()+n);}
+function inRange(d,a,b){return (!a||d>=a) && (!b||d<=b);}
+function pickNumber(obj, keys){for(const k of keys){if(obj[k]!=null&&obj[k]!=="")return cleanNumber(obj[k]);}return 0;}
+function canonicalEmpresa(s){
+  const t=String(s||"").toLowerCase();
+  for(const r of EMPRESA_REMAP){ if(r.match.every(m=>t.includes(m))) return r.to; }
+  return (s||"").toUpperCase();
+}
+function fmtRange(a,b){ return `${fmtBR(a)} → ${fmtBR(b)}`; }
+
+/*** intervalo efetivo para ABC ***/
+function getEffectiveABCRange(){
+  if(!aIni || !aFim) return {ini:aIni, fim:aFim};
+  if (sameYMD(aIni, aFim)) return {ini: addDays(aIni, -1), fim: addDays(aFim, +1)};
+  const iniEff = (aIni.getDate()===1) ? addDays(aIni, -1) : aIni;
+  return {ini: iniEff, fim: aFim};
+}
+
+/*** FETCH ***/
+async function fetchPagamentos(){
+  const r=await fetch(`${SHEET_API}?action=listAno&ano=${ANO}`);
+  if(!r.ok) throw new Error("Pagamentos HTTP "+r.status);
+  const js=await r.json();
+  const list = Array.isArray(js) ? js : (js.registros || []);
+  pagamentosAll = list.map(p=>({
+    empresa: canonicalEmpresa(p.empresa || p.Empresa || ""),
+    fornecedor: p.fornecedor || p["Cliente / Fornecedor"] || "",
+    vencimento: toISODate(p.Vencimento || p.vencimento || p["Vencimento"]),
+    data_pagamento: p.data_pagamento || toISODate(p.Liquidação || p.Liquidacao || p.liquidacao),
+    valor: cleanNumber(p["Valor Bruto"] ?? p.valor ?? 0),
+    meio_pagamento: p.meio_pagamento || p["Meio de Pagamento"] || "",
+    historico: p.historico || p["Histórico"] || ""
+  })).filter(p => p.empresa === COMPANY);
+}
+async function fetchABC(ini, fim){
+  const base = `${ABC_URL}?empresas=${encodeURIComponent(COMPANY)}`;
+  const qs = (ini && fim) ? `&ini=${toISODate(ini)}&fim=${toISODate(fim)}` : "";
+  const r = await fetch(base + qs);
+  if(!r.ok) throw new Error("ABC HTTP "+r.status);
+  const raw = await r.json();
+  const arr = Array.isArray(raw) ? raw : (raw.registros || raw.data || raw.items || []);
+  abcAll = arr
+    .map(o=>{
+      const emp = canonicalEmpresa(o.empresa || o.sheet || o.aba || o.planilha || "");
+      const dataIso = toISODate(o.data || o.DATA || o.Data || "");
+      const faturamento = pickNumber(o, ["total_dia","TOTAL_DIA","total","TOTAL"]);
+      return { data: dataIso, empresa: emp, faturamento };
+    })
+    .filter(x=> x.data && x.empresa===COMPANY && parseISO(x.data).getFullYear() === ANO);
+  abcLoaded = true;
+}
+
+/*** MODAL (histórico por fornecedor) ***/
+function openModal(){ $("#modal").style.display="block"; }
+function closeModal(){ $("#modal").style.display="none"; $("#mBody").innerHTML=""; }
+async function openHistoricoFornecedor(fornecedor){
+  $("#mTitle").textContent = fornecedor;
+  $("#mSub").textContent = `Histórico de pagamentos em ${ANO} — ${COMPANY}`;
+  $("#mBody").innerHTML = `<div class="muted" style="padding:8px 2px">⏳ Carregando histórico…</div>`;
+  openModal();
+  try{
+    const url = `${SHEET_API}?action=histFornecedor&ano=${ANO}&fornecedor=${encodeURIComponent(fornecedor)}`;
+    const r = await fetch(url);
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const js = await r.json();
+
+    const arr = (js.registros || [])
+      .map(p=>({
+        data: toISODate(p.data_pagamento || p.Liquidação || ""),
+        empresa: canonicalEmpresa(p.empresa || p.Empresa || ""),
+        valor: cleanNumber(p["Valor Bruto"] ?? p.valor ?? 0),
+        meio: p.meio_pagamento || p["Meio de Pagamento"] || "",
+        hist: p.historico || p["Histórico"] || "",
+        fornecedor: p.fornecedor || p["Cliente / Fornecedor"] || ""
+      }))
+      .filter(p => p.empresa === COMPANY && (p.fornecedor||"").trim() === fornecedor)
+      .sort((a,b)=> parseISO(b.data) - parseISO(a.data));
+
+    const total = arr.reduce((s,x)=>s+x.valor,0);
+
+    $("#mBody").innerHTML = `
+      <div style="margin-bottom:8px"><b>Total no ano:</b> ${brl(total)}</div>
+      <div class="table-wrap">
+        <table class="table" style="min-width:720px">
+          <thead><tr><th>Data</th><th>Meio</th><th>Histórico</th><th>Valor</th></tr></thead>
+          <tbody>
+            ${arr.map(x=>`
+              <tr>
+                <td>${fmtBR(x.data)}</td>
+                <td>${x.meio||"-"}</td>
+                <td>${x.hist||"-"}</td>
+                <td style="text-align:right">${brl(x.valor)}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>`;
+  }catch(e){
+    $("#mBody").innerHTML = `<div class="muted">Não foi possível carregar o histórico agora.</div>`;
+    console.error(e);
+  }
+}
+
+/*** RENDER ***/
+function aplicar(){
+  // PAGOS (apenas da empresa fixa)
+  const pagos = pagamentosAll.filter(p=>{
+    const d = p.data_pagamento ? parseISO(p.data_pagamento) : null;
+    return d && inRange(d,pIni,pFim);
+  });
+
+  // ABERTOS (apenas da empresa fixa)
+  const abertos = pagamentosAll.filter(p=>{
+    const d = !p.data_pagamento && p.vencimento ? parseISO(p.vencimento) : null;
+    return d && inRange(d,pIni,pFim) && !p.data_pagamento;
+  });
+
+  // ABC (intervalo efetivo)
+  const {ini:effIni, fim:effFim} = getEffectiveABCRange();
+  const arrsFiltrados = abcAll.filter(x=>{
+    const d = parseISO(x.data);
+    return inRange(d,effIni,effFim);
+  });
+
+  // Agrupa por data
+  const dias = new Map();
+  for(const x of arrsFiltrados){
+    const key = String(x.data).slice(0,10);
+    dias.set(key, (dias.get(key) || 0) + cleanNumber(x.faturamento));
+  }
+  const totalArr = Array.from(dias.values()).reduce((s,v)=>s+v,0);
+
+  // Totais pagamentos
+  const somaPago   = pagos.reduce((s,p)=>s+cleanNumber(p.valor),0);
+  const somaApagar = abertos.reduce((s,p)=>s+cleanNumber(p.valor),0);
+  const somaTotal  = somaPago + somaApagar;
+
+  // Resultado
+  const resultado  = totalArr - somaTotal;
+
+  // KPIs
+  $("#kArrecadacao").textContent = abcLoaded ? brl(totalArr) : "⏳ carregando…";
+  $("#abcStatus").textContent    = abcLoaded ? `(${dias.size} dia(s) no período)` : "Arrecadação sendo carregada em segundo plano";
+  $("#kPagamentos").textContent  = brl(somaTotal);
+  $("#kPago").textContent        = brl(somaPago);
+  $("#kApagar").textContent      = brl(somaApagar);
+  $("#kTotal").textContent       = brl(somaTotal);
+  $("#kResultado").innerHTML     = `${brl(resultado)} <span class="badge ${resultado>=0?"lucr":"prej"}">${resultado>=0?"LUCRO":"PREJUÍZO"}</span>`;
+
+  // A pagar (lista)
+  const tbA=$("#tblApagar tbody"); tbA.innerHTML="";
+  $("#qtApagar").textContent = abertos.length;
+  $("#msgApagar").style.display = abertos.length? "none":"block";
+  abertos.sort((x,y)=> parseISO(x.vencimento) - parseISO(y.vencimento))
+    .forEach(p=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML = `
+        <td>${fmtBR(p.vencimento)}</td>
+        <td>${p.fornecedor||"-"}</td>
+        <td style="text-align:right">${brl(p.valor||0)}</td>`;
+      tbA.appendChild(tr);
+    });
+
+  // Detalhes pagos
+  const tb=$("#tblPagamentos tbody"); tb.innerHTML="";
+  $("#msgEmpty").style.display = pagos.length? "none":"block";
+  pagos.forEach(p=>{
+    const tr=document.createElement("tr");
+    tr.className="clickable";
+    tr.innerHTML=`<td>${fmtBR(p.data_pagamento)}</td>
+                  <td>${p.fornecedor||"-"}</td>
+                  <td>${p.historico||"-"}</td>
+                  <td>${brl(p.valor||0)}</td>`;
+    tr.onclick=()=>openHistoricoFornecedor(p.fornecedor);
+    tb.appendChild(tr);
+  });
+
+  // Resumo (uma linha — empresa fixa)
+  const rb=$("#tblResumoEmp tbody"); rb.innerHTML="";
+  const tA = totalArr;
+  const tP = somaTotal;
+  const tR = tA - tP;
+  const tr=document.createElement("tr");
+  tr.innerHTML=`<td>${COMPANY}</td>
+                <td>${abcLoaded? brl(tA) : "⏳"}</td>
+                <td>${brl(tP)}</td>
+                <td><span class="badge ${tR>=0?"lucr":"prej"}">${abcLoaded? brl(tR) : "⏳"}</span></td>`;
+  rb.appendChild(tr);
+
+  $("#lblPR").textContent = fmtRange(pIni,pFim);
+  $("#lblAR").textContent = fmtRange(aIni,aFim);
+}
+
+/*** Aplicar filtros ***/
+async function applyFilters(){
+  hideAllPopovers();
+  const {ini, fim} = getEffectiveABCRange();
+  try { await fetchABC(ini, fim); } catch(e){ console.warn(e); }
+  aplicar();
+}
+
+/*** CALENDÁRIO ***/
+function buildRangeCalendar(container, state, onApply, onCancel){
+  container.innerHTML = "";
+  const cal = document.createElement("div"); cal.className="cal";
+
+  const head = document.createElement("div"); head.className="cal-head";
+  const prev = document.createElement("button"); prev.className="btn"; prev.textContent="‹";
+  const next = document.createElement("button"); next.className="btn"; next.textContent="›";
+  const title = document.createElement("div"); title.style.fontWeight="800";
+  const updTitle=()=>title.textContent = state.cursor.toLocaleString('pt-BR',{month:'long',year:'numeric'});
+  prev.onclick=()=>{ state.cursor = new Date(state.cursor.getFullYear(),state.cursor.getMonth()-1,1); drawGrid(); updTitle(); placePopover(container, state.anchor); };
+  next.onclick=()=>{ state.cursor = new Date(state.cursor.getFullYear(),state.cursor.getMonth()+1,1); drawGrid(); updTitle(); placePopover(container, state.anchor); };
+  head.appendChild(prev); head.appendChild(title); head.appendChild(next);
+  cal.appendChild(head);
+
+  const grid = document.createElement("div"); grid.className="cal-grid";
+  "DSTQQSS".split("").forEach(l=>{ const d=document.createElement("div"); d.className="dow"; d.textContent=l; grid.appendChild(d); });
+
+  function isSameDay(a,b){return a&&b && a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();}
+  function inSelRange(d){
+    if(!state.start||!state.end) return false;
+    const dd=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+    const s=new Date(state.start.getFullYear(),state.start.getMonth(),state.start.getDate());
+    const e=new Date(state.end.getFullYear(),state.end.getMonth(),state.end.getDate());
+    return dd>=s && dd<=e;
+  }
+
+  function drawGrid(){
+    grid.querySelectorAll('.day').forEach(n=>n.remove());
+    const y=state.cursor.getFullYear(), m=state.cursor.getMonth();
+    const first=new Date(y,m,1);
+    const startDay=(first.getDay()+6)%7;
+    const daysInMonth=new Date(y,m+1,0).getDate();
+
+    for(let i=0;i<startDay;i++){ const x=document.createElement("div"); x.className="day out"; grid.appendChild(x); }
+    for(let d=1; d<=daysInMonth; d++){
+      const date=new Date(y,m,d);
+      const el=document.createElement("div"); el.className="day"; el.textContent=d;
+      if(isSameDay(date,state.start)||isSameDay(date,state.end)) el.classList.add('sel');
+      else if(inSelRange(date)) el.classList.add('range');
+      el.onclick=()=>{ 
+        if(!state.start || (state.start && state.end)){ state.start=date; state.end=null; } 
+        else { if(date<state.start){ state.end=state.start; state.start=date; } else { state.end=date; } } 
+        drawGrid(); 
+      };
+      grid.appendChild(el);
+    }
+  }
+  cal.appendChild(grid);
+
+  const foot=document.createElement("div"); foot.className="cal-foot cal foot";
+  const cancel=document.createElement("button"); cancel.className="btn"; cancel.textContent="Cancelar";
+  const apply=document.createElement("button"); apply.className="btn dark"; apply.textContent="Aplicar";
+  cancel.onclick=onCancel;
+  apply.onclick=()=>{ 
+    if(state.start && !state.end){ state.end = state.start; }   // 1 dia = intervalo de 1 dia
+    if(state.start && state.end) onApply(state.start, state.end); 
+  };
+  foot.appendChild(cancel); foot.appendChild(apply);
+  cal.appendChild(foot);
+
+  container.appendChild(cal);
+  updTitle(); drawGrid();
+}
+
+/*** POPOVER + OVERLAY ***/
+function placePopover(pop, anchor){
+  pop.style.display = 'block';
+  $("#overlay").style.display = 'block';
+  const r = anchor.getBoundingClientRect();
+  const PAD = 8;
+  const w = Math.min(window.innerWidth * 0.94, 360);
+  const h = Math.min(window.innerHeight * 0.80, 540);
+  pop.style.width = w + 'px';
+  pop.style.maxHeight = h + 'px';
+  let left = r.left;
+  let top  = r.bottom + 6;
+  if (left + w > window.innerWidth - PAD) left = window.innerWidth - w - PAD;
+  if (left < PAD) left = PAD;
+  if (top + pop.offsetHeight > window.innerHeight - PAD) {
+    top = r.top - pop.offsetHeight - 6;
+    if (top < PAD) top = PAD;
+  }
+  pop.style.position = 'fixed';
+  pop.style.left = left + 'px';
+  pop.style.top  = top  + 'px';
+}
+function hideAllPopovers(){
+  $("#popPR").style.display = 'none';
+  $("#popAR").style.display = 'none';
+  $("#overlay").style.display = 'none';
+}
+
+/*** INIT ***/
+(async function init(){
+  const now=new Date();
+  const ini=new Date(now.getFullYear(),now.getMonth(),1);
+  const fim=new Date(now.getFullYear(),now.getMonth()+1,0);
+  pIni=new Date(ini); pFim=new Date(fim);
+  aIni=new Date(ini); aFim=new Date(fim);
+
+  const prPop = $("#popPR"), arPop=$("#popAR");
+  const prState={cursor:new Date(pIni.getFullYear(),pIni.getMonth(),1), start:pIni, end:pFim, anchor:$("#btnPR")};
+  const arState={cursor:new Date(aIni.getFullYear(),aIni.getMonth(),1), start:aIni, end:aFim, anchor:$("#btnAR")};
+
+  const openPR = ()=>{
+    $("#popAR").style.display = 'none';
+    prState.anchor=$("#btnPR"); prPop.innerHTML="";
+    buildRangeCalendar(prPop, prState, (start,end)=>{
+      pIni=new Date(start.getFullYear(),start.getMonth(),start.getDate());
+      pFim=new Date(end.getFullYear(),end.getMonth(),end.getDate());
+      $("#lblPR").textContent=fmtRange(pIni,pFim);
+      applyFilters();
+    }, hideAllPopovers);
+    placePopover(prPop, $("#btnPR"));
+  };
+
+  const openAR = ()=>{
+    $("#popPR").style.display = 'none';
+    arState.anchor=$("#btnAR"); arPop.innerHTML="";
+    buildRangeCalendar(arPop, arState, (start,end)=>{
+      aIni=new Date(start.getFullYear(),start.getMonth(),start.getDate());
+      aFim=new Date(end.getFullYear(),end.getMonth(),end.getDate());
+      $("#lblAR").textContent=fmtRange(aIni,aFim);
+      applyFilters();
+    }, hideAllPopovers);
+    placePopover(arPop, $("#btnAR"));
+  };
+
+  $("#btnPR").onclick=openPR;
+  $("#btnAR").onclick=openAR;
+
+  $("#overlay").onclick = hideAllPopovers;
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') hideAllPopovers(); });
+
+  $("#lblPR").textContent = fmtRange(pIni,pFim);
+  $("#lblAR").textContent = fmtRange(aIni,aFim);
+
+  try{
+    await fetchPagamentos();
+    const {ini:effIni, fim:effFim} = getEffectiveABCRange();
+    await fetchABC(effIni, effFim);
+    aplicar();
+    $("#loading").style.display="none";
+  }catch(e){
+    console.error(e);
+    alert("Erro ao carregar dados: "+e.message);
+    $("#loading").style.display="none";
+  }
+})();
+
+/*** bloqueio de zoom (mobile) ***/
+document.addEventListener('gesturestart', e=>e.preventDefault(), {passive:false});
+let __lt = 0;
+document.addEventListener('touchend', e=>{ const now = Date.now(); if (now - __lt <= 300) e.preventDefault(); __lt = now; }, {passive:false});
+window.addEventListener('wheel', e=>{ if(e.ctrlKey) e.preventDefault(); }, {passive:false});
+</script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
-<title>Painel de couvert — VILLA GOURMET LEM</title>
+<title>Painel de couvert</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -30,31 +30,42 @@
   .btn{appearance:none;border:1px solid var(--line);background:#fff;border-radius:12px;padding:8px 10px;
        font-size:clamp(12px,3.5vw,14px);cursor:pointer;font-weight:800}
   .btn.dark{background:#111827;color:#fff;border-color:#111827}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
 
-  /* tabelas com rolagem horizontal apenas nelas */
+  /* TABELAS (rolagem horizontal apenas nelas) */
   .table-wrap{width:100%;overflow-x:auto;overflow-y:hidden}
   .table{width:100%;border-collapse:collapse;font-size:clamp(11px,3.2vw,13px);min-width:720px}
   .table th,.table td{border-bottom:1px solid var(--line);padding:10px 8px;text-align:left;white-space:nowrap}
   .table tr.clickable{cursor:pointer}
 
+  /* badge resultado */
   .badge{display:inline-block;padding:3px 7px;border-radius:999px;font-size:clamp(10px,3vw,11px);font-weight:700}
   .lucr{background:#eafff0;color:#065f46;border:1px solid #bbf7d0}
   .prej{background:#ffecec;color:#7f1d1d;border:1px solid #fecaca}
 
-  /* details “a pagar” */
-  details.paylist{margin-top:8px;border:1px solid var(--line);border-radius:12px;background:#fff}
-  details.paylist > summary{list-style:none;padding:9px 10px;cursor:pointer;font-weight:800}
-  details.paylist > summary::-webkit-details-marker{display:none}
-  .smalltable{width:100%;border-collapse:collapse;min-width:560px}
-  .smalltable th,.smalltable td{border-top:1px solid var(--line);padding:9px 8px;font-size:clamp(11px,3.1vw,13px);text-align:left;white-space:nowrap}
-  .smallmuted{color:#6b7280;font-size:clamp(10px,2.9vw,12px)}
+  /* chips de empresas */
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .chip{border:1px solid var(--line);padding:6px 10px;border-radius:999px;background:#fff;cursor:pointer;
+        font-weight:800;display:inline-flex;gap:8px;align-items:center}
+  .chip .amt{font-weight:800;color:#0b1220;opacity:.95;font-size:clamp(12px,3.5vw,14px)}
+  .chip .dash{color:#94a3b8}
+  .chip.active{background:#0b1220;color:#fff;border-color:#0b1220}
+  .chip.active .amt{color:#fff}
 
-  /* popovers + overlay */
+  /* quebras de pagamentos */
+  .pay-break{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .pill{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:5px 9px;
+        font-weight:700;background:#fff;font-size:clamp(11px,3.2vw,13px)}
+  .pill .tag{font-size:clamp(10px,2.9vw,11px);color:var(--muted);text-transform:uppercase;letter-spacing:.2px}
+
+  /* POPUP (calendário e nota/histórico) + overlay */
   .popover{position:fixed;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
            padding:10px;z-index:60;display:none;width:min(94vw,360px);max-height:80vh;overflow:auto}
   .overlay{position:fixed;inset:0;background:transparent;display:none;z-index:55}
+  .note-pop{position:fixed;z-index:80;display:none;background:#fff;border:1px solid var(--line);border-radius:12px;
+            box-shadow:var(--shadow);padding:10px;max-width:min(92vw,420px)}
 
-  /* calendário */
+  /* CALENDÁRIO */
   .cal{width:100%}
   .cal .cal-head{display:flex;align-items:center;justify-content:space-between;padding:6px 8px}
   .cal .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:8px}
@@ -66,7 +77,7 @@
   .cal .day.range{background:var(--blue-100);color:#111827}
   .cal .foot{display:flex;justify-content:flex-end;gap:8px;padding:8px}
 
-  /* modal histórico fornecedor */
+  /* modal (histórico e a pagar) */
   .modal{position:fixed;inset:0;background:rgba(2,6,23,.5);display:none;z-index:120}
   .sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:20px 20px 0 0;border:1px solid var(--line);
          box-shadow:var(--shadow);max-height:85vh;display:flex;flex-direction:column}
@@ -88,7 +99,7 @@
 </style>
 </head>
 <body>
-<header><h1>Painel de Arrecadação x Pagamentos — VILLA GOURMET LEM</h1></header>
+<header><h1>Painel de Arrecadação x Pagamentos</h1></header>
 
 <div id="loading">⏳ Carregando dados…</div>
 
@@ -97,6 +108,11 @@
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <button class="btn" id="btnPR">Pagamentos: <span id="lblPR"></span></button>
       <button class="btn" id="btnAR">ABC: <span id="lblAR"></span></button>
+    </div>
+    <div style="margin-top:8px">
+      <strong>Empresas:</strong>
+      <div id="chipsEmpresas" class="chips"></div>
+      <div id="empLoadMsg" class="muted" style="display:none">Carregando arrecadação (ABC) em segundo plano…</div>
     </div>
   </div>
 
@@ -118,18 +134,11 @@
           <span class="pill"><span class="tag">A pagar</span><span id="kApagar">R$ 0,00</span></span>
           <span class="pill"><span class="tag">Total</span><span id="kTotal">R$ 0,00</span></span>
         </div>
-        <details class="paylist" id="dlstApagar">
-          <summary>A pagar (<span id="qtApagar">0</span>)</summary>
-          <div style="padding:0 10px 10px 10px">
-            <div class="table-wrap">
-              <table class="smalltable" id="tblApagar">
-                <thead><tr><th>Vencimento</th><th>Fornecedor</th><th style="text-align:right">Valor</th></tr></thead>
-                <tbody></tbody>
-              </table>
-            </div>
-            <div class="smallmuted" id="msgApagar" style="display:none">Sem lançamentos em aberto no período.</div>
-          </div>
-        </details>
+
+        <!-- novo: botão para abrir o modal “A pagar” -->
+        <div style="margin-top:8px">
+          <button class="btn" id="btnApagar">Ver A pagar (<span id="qtApagar">0</span>)</button>
+        </div>
       </div>
     </div>
 
@@ -139,7 +148,7 @@
   </div>
 
   <div class="card">
-    <h3>Resumo</h3>
+    <h3>Resumo por Empresa</h3>
     <div class="table-wrap">
       <table class="table" id="tblResumoEmp">
         <thead><tr><th>Empresa</th><th>Arrecadação</th><th>Pagamentos</th><th>Resultado</th></tr></thead>
@@ -153,12 +162,12 @@
     <div class="table-wrap">
       <table class="table" id="tblPagamentos">
         <thead><tr>
-          <th>Data</th><th>Fornecedor</th><th>Histórico</th><th>Valor</th>
+          <th>Data</th><th>Empresa</th><th>Fornecedor</th><th>Histórico</th><th>Valor</th>
         </tr></thead>
         <tbody></tbody>
       </table>
     </div>
-    <div id="msgEmpty" class="muted" style="display:none;margin-top:6px">Nenhum pagamento encontrado nesse período.</div>
+    <div id="msgEmpty" class="muted" style="display:none;margin-top:6px">Nenhum pagamento encontrado nesse período/empresa.</div>
   </div>
 </div>
 
@@ -174,31 +183,66 @@
   </div>
 </div>
 
-<!-- overlay + popovers dos calendários -->
+<!-- Modal “A pagar” -->
+<div class="modal" id="modalApagar">
+  <div class="sheet" style="left:0;right:0;">
+    <button class="btn close" onclick="closeApagar()">Fechar</button>
+    <header>
+      <h3>Contas a pagar</h3>
+      <small id="subApagar"></small>
+    </header>
+    <div class="content">
+      <div class="table-wrap">
+        <table class="table" style="min-width:640px" id="tblApagarModal">
+          <thead><tr><th>Vencimento</th><th>Empresa</th><th>Fornecedor</th><th style="text-align:right">Valor</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="muted" id="msgApagarModal" style="display:none;margin-top:6px">Sem lançamentos em aberto no período.</div>
+    </div>
+  </div>
+</div>
+
+<!-- overlay leve p/ popovers -->
 <div class="overlay" id="overlay"></div>
+
+<!-- popovers dos calendários -->
 <div class="popover" id="popPR"></div>
 <div class="popover" id="popAR"></div>
 
-<script>
-/*** CONFIG ***/
-const COMPANY = "VILLA GOURMET LEM";
+<!-- popup leve para mostrar “Histórico” do lançamento -->
+<div class="note-pop" id="notePop"></div>
 
+<script>
 /*** URLs ***/
 const SHEET_API = "https://script.google.com/macros/s/AKfycbxWaj8E9HFvxJLojit8u8dvTopG0RLTtbBXQdmD6U93dgBSiupHyu79idCkeFD0a4FZ6w/exec";
-const ABC_URL   = "https://script.google.com/macros/s/AKfycbwMJJ_MV7AQX-Nw2CLGECsmogfVGt9DTOVF1zpiZh2QCIZuuvqssD25UN-dpGm2YL7s/exec";
+const ABC_URL   = "https://script.google.com/macros/s/AKfycbxxv-9kLzyqS9Qy8WX_qPp7UG8He3OaEbIxZMV3HoRaSpdBfRYqZZZODLQlIJZDufso/exec";
 
 /*** STATE ***/
 const ANO = 2025;
+
+/* mapeia nomes vindos das abas/planilhas */
 const EMPRESA_REMAP = [
   {match:["mercatto"], to:"MERCATTO DELÍCIA"},
   {match:["delicia"],  to:"DELICIA GOURMET"},
+  {match:["villa","barreiras"], to:"VILLA GOURMET BARREIRAS"},
   {match:["villa","lem"], to:"VILLA GOURMET LEM"},
   {match:["villa"], to:"VILLA GOURMET LEM"},
 ];
 
+/* permitir APENAS “VILLA GOURMET LEM” (e variantes que contenham “villa” e “lem”) */
+function isExcludedEmpresa(name){
+  const s = String(name||"").toLowerCase();
+  const allowOnlyVGL = s.includes("villa") && s.includes("lem");
+  return !allowOnlyVGL; // exclui tudo que não for VILLA GOURMET LEM
+}
+
 let pagamentosAll = [];
 let abcAll = [];
+let empresas = [];
+let empresasSelecionadas = new Set();
 let abcLoaded = false;
+let lastAbertos = []; // <— lista para o modal “A pagar”
 
 // ranges (Date)
 let pIni=null,pFim=null; // pagamentos
@@ -236,6 +280,7 @@ function parseISO(s){
   const [y,m,d] = iso.split("-").map(Number);
   return new Date(y, m-1, d);
 }
+/* datas SEMPRE em dd/mm/aaaa para exibição */
 function fmtBR(x){
   if(!x) return "-";
   const d = x instanceof Date ? x : parseISO(x);
@@ -243,22 +288,35 @@ function fmtBR(x){
 }
 function sameYMD(a,b){return a&&b && a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();}
 function addDays(d, n){return new Date(d.getFullYear(), d.getMonth(), d.getDate()+n);}
-function inRange(d,a,b){return (!a||d>=a) && (!b||d<=b);}
+function inRange(d,a,b){return (!a||d>=a) && (!b||d<=b);} // inclusivo
+function uniq(a){return [...new Set(a)].filter(Boolean).sort();}
 function pickNumber(obj, keys){for(const k of keys){if(obj[k]!=null&&obj[k]!=="")return cleanNumber(obj[k]);}return 0;}
-function canonicalEmpresa(s){
-  const t=String(s||"").toLowerCase();
-  for(const r of EMPRESA_REMAP){ if(r.match.every(m=>t.includes(m))) return r.to; }
-  return (s||"").toUpperCase();
+function remapEmpresaABCfromObj(o){
+  const candidates = [
+    o.empresa, o.EMPRESA, o.Empresa, o.sheet, o.SHEET, o.aba, o.ABA,
+    o.planilha, o.PLANILHA, o.origem, o.ORIGEM
+  ].filter(Boolean).map(s=>String(s).toLowerCase());
+  const full = candidates.join(" ");
+  for(const rule of EMPRESA_REMAP){ if(rule.match.every(m => full.includes(m))) return rule.to; }
+  const plain = (candidates[0]||"").replace(/^abc\s+de\s+vendas\s+/i,"").trim();
+  return plain || (o.empresa||o.EMPRESA||"");
 }
 function fmtRange(a,b){ return `${fmtBR(a)} → ${fmtBR(b)}`; }
 
-/*** intervalo efetivo para ABC ***/
+// Intervalo efetivo = exatamente o escolhido no calendário (inclusivo)
 function getEffectiveABCRange(){
   if(!aIni || !aFim) return {ini:aIni, fim:aFim};
-  if (sameYMD(aIni, aFim)) return {ini: addDays(aIni, -1), fim: addDays(aFim, +1)};
-  const iniEff = (aIni.getDate()===1) ? addDays(aIni, -1) : aIni;
-  return {ini: iniEff, fim: aFim};
+
+  // garante ordem caso o usuário clique invertido
+  const s = aIni < aFim ? aIni : aFim;
+  const e = aIni < aFim ? aFim : aIni;
+
+  // zera horas e devolve limites inclusivos
+  const ini = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+  const fim = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+  return {ini, fim};
 }
+
 
 /*** FETCH ***/
 async function fetchPagamentos(){
@@ -267,39 +325,88 @@ async function fetchPagamentos(){
   const js=await r.json();
   const list = Array.isArray(js) ? js : (js.registros || []);
   pagamentosAll = list.map(p=>({
-    empresa: canonicalEmpresa(p.empresa || p.Empresa || ""),
+    empresa: p.empresa || p.Empresa || "",
     fornecedor: p.fornecedor || p["Cliente / Fornecedor"] || "",
     vencimento: toISODate(p.Vencimento || p.vencimento || p["Vencimento"]),
     data_pagamento: p.data_pagamento || toISODate(p.Liquidação || p.Liquidacao || p.liquidacao),
     valor: cleanNumber(p["Valor Bruto"] ?? p.valor ?? 0),
     meio_pagamento: p.meio_pagamento || p["Meio de Pagamento"] || "",
     historico: p.historico || p["Histórico"] || ""
-  })).filter(p => p.empresa === COMPANY);
+  }))
+  .filter(p => !isExcludedEmpresa(p.empresa));
 }
 async function fetchABC(ini, fim){
-  const base = `${ABC_URL}?empresas=${encodeURIComponent(COMPANY)}`;
-  const qs = (ini && fim) ? `&ini=${toISODate(ini)}&fim=${toISODate(fim)}` : "";
-  const r = await fetch(base + qs);
+  const qs = (ini && fim) ? `?ini=${toISODate(ini)}&fim=${toISODate(fim)}` : "";
+  let r = await fetch(ABC_URL + qs);
+  if(!r.ok && qs){ r = await fetch(ABC_URL); }
   if(!r.ok) throw new Error("ABC HTTP "+r.status);
+
   const raw = await r.json();
   const arr = Array.isArray(raw) ? raw : (raw.registros || raw.data || raw.items || []);
   abcAll = arr
     .map(o=>{
-      const emp = canonicalEmpresa(o.empresa || o.sheet || o.aba || o.planilha || "");
+      const emp = remapEmpresaABCfromObj(o);
       const dataIso = toISODate(o.data || o.DATA || o.Data || "");
       const faturamento = pickNumber(o, ["total_dia","TOTAL_DIA","total","TOTAL"]);
       return { data: dataIso, empresa: emp, faturamento };
     })
-    .filter(x=> x.data && x.empresa===COMPANY && parseISO(x.data).getFullYear() === ANO);
+    .filter(x=> x.data && parseISO(x.data).getFullYear() === ANO && !isExcludedEmpresa(x.empresa));
   abcLoaded = true;
 }
 
-/*** MODAL (histórico por fornecedor) ***/
+/*** EMPRESAS / CHIPS ***/
+function coletarEmpresas(){
+  const a = pagamentosAll.map(p=>p.empresa);
+  const b = abcAll.map(x=>x.empresa).filter(Boolean);
+  let novas = uniq(a.concat(b));
+  novas = novas.filter(n => !isExcludedEmpresa(n));
+  if (empresasSelecionadas.size === 0) {
+    empresasSelecionadas = new Set(novas);
+  } else {
+    const keep = [...empresasSelecionadas].filter(e=> novas.includes(e));
+    empresasSelecionadas = new Set(keep.length ? keep : novas);
+  }
+  empresas = novas;
+}
+function sumArrecadacaoEmpresa(emp){
+  const {ini, fim} = getEffectiveABCRange();
+  return abcAll
+    .filter(x=>{
+      const d = parseISO(x.data);
+      return x.empresa===emp && inRange(d,ini,fim);
+    })
+    .reduce((s,x)=>s+cleanNumber(x.faturamento),0);
+}
+function renderChips(){
+  const host=$("#chipsEmpresas"); host.innerHTML="";
+  const cTodas=document.createElement("span");
+  const allActive=(empresasSelecionadas.size===empresas.length);
+  cTodas.className="chip"+(allActive?" active":"");
+  cTodas.textContent="Todas";
+  cTodas.onclick=()=>{empresasSelecionadas=new Set(empresas); renderChips(); aplicar();};
+  host.appendChild(cTodas);
+
+  empresas.forEach(e=>{
+    const c=document.createElement("span");
+    const isActive=(empresasSelecionadas.size===1 && empresasSelecionadas.has(e));
+    c.className="chip"+(isActive?" active":"");
+    const amt=sumArrecadacaoEmpresa(e);
+    c.innerHTML=`<span>${e}</span>${Number.isFinite(amt)? "<span class='amt'>"+brl(amt)+"</span>":"<span class='dash'>—</span>"}`;
+    c.onclick=()=>{empresasSelecionadas=new Set([e]); renderChips(); aplicar();};
+    host.appendChild(c);
+  });
+}
+
+/*** MODAIS ***/
 function openModal(){ $("#modal").style.display="block"; }
 function closeModal(){ $("#modal").style.display="none"; $("#mBody").innerHTML=""; }
+function openApagar(){ $("#modalApagar").style.display="block"; }
+function closeApagar(){ $("#modalApagar").style.display="none"; }
+
+/*** Histórico por fornecedor (modal de histórico) ***/
 async function openHistoricoFornecedor(fornecedor){
   $("#mTitle").textContent = fornecedor;
-  $("#mSub").textContent = `Histórico de pagamentos em ${ANO} — ${COMPANY}`;
+  $("#mSub").textContent = ` Pagamentos em ${ANO}`;
   $("#mBody").innerHTML = `<div class="muted" style="padding:8px 2px">⏳ Carregando histórico…</div>`;
   openModal();
   try{
@@ -308,17 +415,16 @@ async function openHistoricoFornecedor(fornecedor){
     if(!r.ok) throw new Error("HTTP "+r.status);
     const js = await r.json();
 
-    const arr = (js.registros || [])
-      .map(p=>({
-        data: toISODate(p.data_pagamento || p.Liquidação || ""),
-        empresa: canonicalEmpresa(p.empresa || p.Empresa || ""),
-        valor: cleanNumber(p["Valor Bruto"] ?? p.valor ?? 0),
-        meio: p.meio_pagamento || p["Meio de Pagamento"] || "",
-        hist: p.historico || p["Histórico"] || "",
-        fornecedor: p.fornecedor || p["Cliente / Fornecedor"] || ""
-      }))
-      .filter(p => p.empresa === COMPANY && (p.fornecedor||"").trim() === fornecedor)
-      .sort((a,b)=> parseISO(b.data) - parseISO(a.data));
+    const arr = (js.registros || []).filter(p => {
+      const f = (p.fornecedor || p["Cliente / Fornecedor"] || "").trim();
+      return f === fornecedor;
+    }).map(p=>({
+      data: toISODate(p.data_pagamento || p.Liquidação || ""),
+      empresa: p.empresa || p.Empresa || "",
+      valor: cleanNumber(p["Valor Bruto"] ?? p.valor ?? 0),
+      meio: p.meio_pagamento || p["Meio de Pagamento"] || "",
+      hist: p.historico || p["Histórico"] || ""
+    })).sort((a,b)=> parseISO(b.data) - parseISO(a.data));
 
     const total = arr.reduce((s,x)=>s+x.valor,0);
 
@@ -326,11 +432,12 @@ async function openHistoricoFornecedor(fornecedor){
       <div style="margin-bottom:8px"><b>Total no ano:</b> ${brl(total)}</div>
       <div class="table-wrap">
         <table class="table" style="min-width:720px">
-          <thead><tr><th>Data</th><th>Meio</th><th>Histórico</th><th>Valor</th></tr></thead>
+          <thead><tr><th>Data</th><th>Empresa</th><th>Meio</th><th>Histórico</th><th>Valor</th></tr></thead>
           <tbody>
             ${arr.map(x=>`
               <tr>
                 <td>${fmtBR(x.data)}</td>
+                <td>${x.empresa||"-"}</td>
                 <td>${x.meio||"-"}</td>
                 <td>${x.hist||"-"}</td>
                 <td style="text-align:right">${brl(x.valor)}</td>
@@ -344,25 +451,57 @@ async function openHistoricoFornecedor(fornecedor){
   }
 }
 
+/*** POPUP leve para mostrar “Histórico” do lançamento ***/
+function showNote(text, anchor){
+  const pop = $("#notePop");
+  pop.innerHTML = `<div style="font-weight:800;margin-bottom:6px">Histórico</div>
+                   <div style="max-width:60ch;white-space:pre-wrap">${text || "—"}</div>`;
+  pop.style.display = 'block';
+  $("#overlay").style.display = 'block';
+
+  const r = anchor.getBoundingClientRect();
+  const PAD=8;
+  let left = r.left, top = r.bottom + 6;
+  const w = pop.offsetWidth || 280;
+  const h = pop.offsetHeight || 120;
+  if (left + w > window.innerWidth - PAD) left = window.innerWidth - w - PAD;
+  if (left < PAD) left = PAD;
+  if (top + h > window.innerHeight - PAD) top = r.top - h - 6;
+  if (top < PAD) top = PAD;
+  pop.style.position='fixed';
+  pop.style.left = left + 'px';
+  pop.style.top  = top  + 'px';
+}
+function hideNote(){ $("#notePop").style.display='none'; $("#overlay").style.display='none'; }
+
 /*** RENDER ***/
 function aplicar(){
-  // PAGOS (apenas da empresa fixa)
+  const allSelected = (empresasSelecionadas.size===empresas.length);
+  const filtroEmp = (empresa)=> allSelected || empresasSelecionadas.has(empresa);
+
+  // PAGOS
   const pagos = pagamentosAll.filter(p=>{
+    const okEmp = filtroEmp(p.empresa);
     const d = p.data_pagamento ? parseISO(p.data_pagamento) : null;
-    return d && inRange(d,pIni,pFim);
+    return okEmp && d && inRange(d,pIni,pFim);
   });
 
-  // ABERTOS (apenas da empresa fixa)
+  // ABERTOS
   const abertos = pagamentosAll.filter(p=>{
+    const okEmp = filtroEmp(p.empresa);
     const d = !p.data_pagamento && p.vencimento ? parseISO(p.vencimento) : null;
-    return d && inRange(d,pIni,pFim) && !p.data_pagamento;
+    return okEmp && d && inRange(d,pIni,pFim) && !p.data_pagamento;
   });
 
-  // ABC (intervalo efetivo)
+  // guarda para o modal
+  lastAbertos = abertos.slice().sort((x,y)=> parseISO(x.vencimento) - parseISO(y.vencimento));
+
+  // ABC (com intervalo efetivo)
   const {ini:effIni, fim:effFim} = getEffectiveABCRange();
   const arrsFiltrados = abcAll.filter(x=>{
     const d = parseISO(x.data);
-    return inRange(d,effIni,effFim);
+    const okEmp = x.empresa ? filtroEmp(x.empresa) : true;
+    return okEmp && inRange(d,effIni,effFim);
   });
 
   // Agrupa por data
@@ -373,7 +512,7 @@ function aplicar(){
   }
   const totalArr = Array.from(dias.values()).reduce((s,v)=>s+v,0);
 
-  // Totais pagamentos
+  // Totais de pagamentos
   const somaPago   = pagos.reduce((s,p)=>s+cleanNumber(p.valor),0);
   const somaApagar = abertos.reduce((s,p)=>s+cleanNumber(p.valor),0);
   const somaTotal  = somaPago + somaApagar;
@@ -389,49 +528,79 @@ function aplicar(){
   $("#kApagar").textContent      = brl(somaApagar);
   $("#kTotal").textContent       = brl(somaTotal);
   $("#kResultado").innerHTML     = `${brl(resultado)} <span class="badge ${resultado>=0?"lucr":"prej"}">${resultado>=0?"LUCRO":"PREJUÍZO"}</span>`;
-
-  // A pagar (lista)
-  const tbA=$("#tblApagar tbody"); tbA.innerHTML="";
-  $("#qtApagar").textContent = abertos.length;
-  $("#msgApagar").style.display = abertos.length? "none":"block";
-  abertos.sort((x,y)=> parseISO(x.vencimento) - parseISO(y.vencimento))
-    .forEach(p=>{
-      const tr=document.createElement("tr");
-      tr.innerHTML = `
-        <td>${fmtBR(p.vencimento)}</td>
-        <td>${p.fornecedor||"-"}</td>
-        <td style="text-align:right">${brl(p.valor||0)}</td>`;
-      tbA.appendChild(tr);
-    });
+  $("#qtApagar").textContent     = lastAbertos.length;
+  $("#btnApagar").disabled       = (lastAbertos.length===0);
 
   // Detalhes pagos
   const tb=$("#tblPagamentos tbody"); tb.innerHTML="";
   $("#msgEmpty").style.display = pagos.length? "none":"block";
   pagos.forEach(p=>{
     const tr=document.createElement("tr");
-    tr.className="clickable";
     tr.innerHTML=`<td>${fmtBR(p.data_pagamento)}</td>
+                  <td>${p.empresa||"-"}</td>
                   <td>${p.fornecedor||"-"}</td>
-                  <td>${p.historico||"-"}</td>
+                  <td><button class="btn" style="padding:4px 8px" data-note="${(p.historico||"").replace(/"/g,'&quot;')}">ver</button></td>
                   <td>${brl(p.valor||0)}</td>`;
-    tr.onclick=()=>openHistoricoFornecedor(p.fornecedor);
+    tr.querySelector('button[data-note]').onclick = (ev)=>{
+      showNote(ev.currentTarget.getAttribute('data-note')||"—", ev.currentTarget);
+    };
+    tr.style.cursor="pointer";
+    tr.addEventListener('click', (e)=>{ 
+      if(e.target && e.target.matches('button[data-note]')) return;
+      openHistoricoFornecedor(p.fornecedor);
+    });
     tb.appendChild(tr);
   });
 
-  // Resumo (uma linha — empresa fixa)
+  // Resumo por empresa
   const rb=$("#tblResumoEmp tbody"); rb.innerHTML="";
-  const tA = totalArr;
-  const tP = somaTotal;
-  const tR = tA - tP;
-  const tr=document.createElement("tr");
-  tr.innerHTML=`<td>${COMPANY}</td>
-                <td>${abcLoaded? brl(tA) : "⏳"}</td>
-                <td>${brl(tP)}</td>
-                <td><span class="badge ${tR>=0?"lucr":"prej"}">${abcLoaded? brl(tR) : "⏳"}</span></td>`;
-  rb.appendChild(tr);
+  empresas.forEach(emp=>{
+    const pPago = pagamentosAll.filter(p=>{
+      const d = p.data_pagamento ? parseISO(p.data_pagamento) : null;
+      return p.empresa===emp && d && inRange(d,pIni,pFim);
+    });
+    const pAber = pagamentosAll.filter(p=>{
+      const d = !p.data_pagamento && p.vencimento ? parseISO(p.vencimento) : null;
+      return p.empresa===emp && d && inRange(d,pIni,pFim) && !p.data_pagamento;
+    });
+
+    const aEmp = arrsFiltrados.filter(x=> (x.empresa? x.empresa===emp : true));
+    const tA = aEmp.reduce((s,x)=>s+cleanNumber(x.faturamento),0);
+    const tP = pPago.reduce((s,p)=>s+cleanNumber(p.valor),0) + pAber.reduce((s,p)=>s+cleanNumber(p.valor),0);
+    const tR = tA - tP;
+
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${emp}</td>
+                  <td>${abcLoaded? brl(tA) : "⏳"}</td>
+                  <td>${brl(tP)}</td>
+                  <td><span class="badge ${tR>=0?"lucr":"prej"}">${abcLoaded? brl(tR) : "⏳"}</span></td>`;
+    rb.appendChild(tr);
+  });
 
   $("#lblPR").textContent = fmtRange(pIni,pFim);
   $("#lblAR").textContent = fmtRange(aIni,aFim);
+}
+
+/*** Modal “A pagar” — popula e abre ***/
+function openApagarModal(){
+  $("#subApagar").textContent = fmtRange(pIni,pFim);
+  const tb = $("#tblApagarModal tbody");
+  tb.innerHTML = "";
+  if(lastAbertos.length === 0){
+    $("#msgApagarModal").style.display="block";
+  }else{
+    $("#msgApagarModal").style.display="none";
+    lastAbertos.forEach(p=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML = `
+        <td>${fmtBR(p.vencimento)}</td>
+        <td>${p.empresa||"-"}</td>
+        <td>${p.fornecedor||"-"}</td>
+        <td style="text-align:right">${brl(p.valor||0)}</td>`;
+      tb.appendChild(tr);
+    });
+  }
+  openApagar();
 }
 
 /*** Aplicar filtros ***/
@@ -439,7 +608,7 @@ async function applyFilters(){
   hideAllPopovers();
   const {ini, fim} = getEffectiveABCRange();
   try { await fetchABC(ini, fim); } catch(e){ console.warn(e); }
-  aplicar();
+  coletarEmpresas(); renderChips(); aplicar();
 }
 
 /*** CALENDÁRIO ***/
@@ -460,7 +629,7 @@ function buildRangeCalendar(container, state, onApply, onCancel){
   const grid = document.createElement("div"); grid.className="cal-grid";
   "DSTQQSS".split("").forEach(l=>{ const d=document.createElement("div"); d.className="dow"; d.textContent=l; grid.appendChild(d); });
 
-  function isSameDay(a,b){return a&&b && a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();}
+  function isSameDay(a,b){return sameYMD(a,b);}
   function inSelRange(d){
     if(!state.start||!state.end) return false;
     const dd=new Date(d.getFullYear(),d.getMonth(),d.getDate());
@@ -497,7 +666,7 @@ function buildRangeCalendar(container, state, onApply, onCancel){
   const apply=document.createElement("button"); apply.className="btn dark"; apply.textContent="Aplicar";
   cancel.onclick=onCancel;
   apply.onclick=()=>{ 
-    if(state.start && !state.end){ state.end = state.start; }   // 1 dia = intervalo de 1 dia
+    if(state.start && !state.end){ state.end = state.start; }
     if(state.start && state.end) onApply(state.start, state.end); 
   };
   foot.appendChild(cancel); foot.appendChild(apply);
@@ -573,9 +742,11 @@ function hideAllPopovers(){
 
   $("#btnPR").onclick=openPR;
   $("#btnAR").onclick=openAR;
+  $("#btnApagar").onclick=openApagarModal;
 
-  $("#overlay").onclick = hideAllPopovers;
-  document.addEventListener('keydown', e=>{ if(e.key==='Escape') hideAllPopovers(); });
+  // clicar fora (overlay) e ESC
+  $("#overlay").onclick = ()=>{ hideAllPopovers(); hideNote(); };
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ hideAllPopovers(); hideNote(); } });
 
   $("#lblPR").textContent = fmtRange(pIni,pFim);
   $("#lblAR").textContent = fmtRange(aIni,aFim);
@@ -584,7 +755,7 @@ function hideAllPopovers(){
     await fetchPagamentos();
     const {ini:effIni, fim:effFim} = getEffectiveABCRange();
     await fetchABC(effIni, effFim);
-    aplicar();
+    coletarEmpresas(); renderChips(); aplicar();
     $("#loading").style.display="none";
   }catch(e){
     console.error(e);
@@ -593,7 +764,7 @@ function hideAllPopovers(){
   }
 })();
 
-/*** bloqueio de zoom (mobile) ***/
+/*** BLOQUEIO DE ZOOM (mobile) ***/
 document.addEventListener('gesturestart', e=>e.preventDefault(), {passive:false});
 let __lt = 0;
 document.addEventListener('touchend', e=>{ const now = Date.now(); if (now - __lt <= 300) e.preventDefault(); __lt = now; }, {passive:false});
